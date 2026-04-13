@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(unzip -l \"C:/Users/smhar/Downloads/63b89529cfa3efc3761951b235cbed42146fab08ce11021488ec222a5cb8fee1-2026-04-11-19-44-39-ffc8ad7ddd72494baaca8c9e0b1962da.zip\")",
+      "Bash(mkdir -p extracted)",
+      "Bash(unzip -o \"C:/Users/smhar/Downloads/63b89529cfa3efc3761951b235cbed42146fab08ce11021488ec222a5cb8fee1-2026-04-11-19-44-39-ffc8ad7ddd72494baaca8c9e0b1962da.zip\" -d extracted -x '*/audio/*' '*.wav')",
+      "Bash(python -c ':*)",
+      "Bash(ls *.jpg)",
+      "Bash(npm init:*)",
+      "Bash(npm install:*)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(npx prisma:*)",
+      "Bash(npx tsx:*)",
+      "Bash(rm -f prisma.config.ts)",
+      "Bash(rm -f prisma/applyforme.db)",
+      "Bash(node -e ':*)",
+      "Bash(node -e \"console.log\\(require\\('@simplewebauthn/server/package.json'\\).version\\)\")",
+      "Bash(git --version)",
+      "Bash(gh --version)",
+      "Bash(winget install:*)",
+      "Bash(npx gh:*)"
+    ]
+  }
+}

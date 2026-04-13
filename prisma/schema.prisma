@@ -1,0 +1,181 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./applyforme.db"
+}
+
+// ─── Auth Models (NextAuth.js) ───
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Authenticator {
+  id                   String  @id @default(cuid())
+  userId               String
+  credentialID         String  @unique
+  credentialPublicKey  String
+  counter              BigInt
+  credentialDeviceType String
+  credentialBackedUp   Boolean
+  transports           String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─── App Models ───
+
+model User {
+  id               String    @id @default(cuid())
+  name             String
+  email            String?
+  emailVerified    DateTime?
+  image            String?
+  pin              String?
+  role             String    @default("USER")
+  failedPinAttempts Int      @default(0)
+  lockedUntil      DateTime?
+  phone            String?
+  address          String?
+  linkedin         String?
+  nationality      String?
+  yearsExperience  Int?
+  executiveSummary String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  accounts       Account[]
+  sessions       Session[]
+  authenticators Authenticator[]
+  competencies      CoreCompetency[]
+  careerEntries     CareerEntry[]
+  certifications    Certification[]
+  applications      Application[]
+  priorityBenefits  PriorityBenefit[]
+}
+
+model CoreCompetency {
+  id         String @id @default(cuid())
+  userId     String
+  competency String
+  sortOrder  Int    @default(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CareerEntry {
+  id        String @id @default(cuid())
+  userId    String
+  title     String
+  company   String
+  location  String?
+  startDate String?
+  endDate   String?
+  sortOrder Int    @default(0)
+
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  highlights CareerHighlight[]
+  keywords   CareerKeyword[]
+}
+
+model CareerHighlight {
+  id            String @id @default(cuid())
+  careerEntryId String
+  highlight     String
+  sortOrder     Int    @default(0)
+
+  careerEntry CareerEntry @relation(fields: [careerEntryId], references: [id], onDelete: Cascade)
+}
+
+model CareerKeyword {
+  id            String @id @default(cuid())
+  careerEntryId String
+  keyword       String
+
+  careerEntry CareerEntry @relation(fields: [careerEntryId], references: [id], onDelete: Cascade)
+}
+
+model Certification {
+  id        String @id @default(cuid())
+  userId    String
+  name      String
+  year      Int?
+  sortOrder Int    @default(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PriorityBenefit {
+  id       String @id @default(cuid())
+  userId   String
+  keyword  String
+  priority Int    @default(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Application {
+  id                    String   @id @default(cuid())
+  userId                String
+  jobTitle              String?
+  company               String?
+  jobText               String?
+  hiringManager         String?
+  matchPercentage       Int?
+  officeLocation        String?
+  analysisJson          String?
+  briefingJson          String?
+  salaryJson            String?
+  hiringManagerName     String?
+  hiringManagerResearch String?
+  createdAt             DateTime @default(now())
+
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  interviewNotes InterviewNote[]
+}
+
+model InterviewNote {
+  id            String  @id @default(cuid())
+  applicationId String
+  questionKey   String
+  question      String
+  answer        String?
+  sortOrder     Int     @default(0)
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+}
