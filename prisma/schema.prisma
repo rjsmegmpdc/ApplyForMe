@@ -75,6 +75,7 @@ model User {
   linkedin         String?
   nationality      String?
   yearsExperience  Int?
+  ankiExportFormat String    @default("both")
   executiveSummary String?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
@@ -209,4 +210,17 @@ model EmailLog {
   subject       String
   sentAt        DateTime @default(now())
   status        String   @default("sent")
+}
+
+model ProcessedEmail {
+  id            String   @id @default(cuid())
+  gmailMsgId    String   @unique
+  threadId      String?
+  source        String   @default("seek")
+  jobTitle      String?
+  company       String?
+  action        String   @default("analysed")
+  matchPct      Int?
+  applicationId String?
+  processedAt   DateTime @default(now())
 }

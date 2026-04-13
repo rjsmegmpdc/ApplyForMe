@@ -107,6 +107,67 @@ export default function ApplicationDetailPage() {
         <Link href="/history" className="text-sm text-slate-500 hover:text-slate-700">Back to History</Link>
       </div>
 
+      {/* Status Progression */}
+      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 mb-6 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-slate-500 dark:text-slate-400">Status:</span>
+          <select
+            value={app.status || "analysed"}
+            onChange={async (e) => {
+              const newStatus = e.target.value;
+              await fetch(`/api/applications/${appId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ status: newStatus }),
+              }).catch(() => {});
+              setApp({ ...app, status: newStatus } as typeof app);
+            }}
+            className="px-3 py-1 rounded-lg text-sm font-medium border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="analysed">Analysed</option>
+            <option value="applied">Applied</option>
+            <option value="recruiter_screen">Recruiter Screen</option>
+            <option value="interview_1">Interview 1</option>
+            <option value="interview_2">Interview 2</option>
+            <option value="offer">Offer</option>
+            <option value="accepted">Accepted</option>
+            <option value="declined">Declined</option>
+          </select>
+        </div>
+        <button
+          onClick={async () => {
+            setGenerating("anki");
+            try {
+              const res = await fetch("/api/anki/generate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ applicationId: appId }),
+              });
+              const data = await res.json();
+              if (data.apkg) {
+                const blob = new Blob([Uint8Array.from(atob(data.apkg), c => c.charCodeAt(0))], { type: "application/octet-stream" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a"); a.href = url;
+                a.download = `${(app.jobTitle || "role").replace(/\s+/g, "_")}_anki.apkg`;
+                a.click(); URL.revokeObjectURL(url);
+              }
+              if (data.csv) {
+                const blob = new Blob([Uint8Array.from(atob(data.csv), c => c.charCodeAt(0))], { type: "text/tab-separated-values" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a"); a.href = url;
+                a.download = `${(app.jobTitle || "role").replace(/\s+/g, "_")}_anki.txt`;
+                a.click(); URL.revokeObjectURL(url);
+              }
+            } catch (e) { console.error(e); }
+            setGenerating(null);
+          }}
+          disabled={generating !== null}
+          className="px-4 py-1.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
+        >
+          {generating === "anki" ? "Generating..." : "Download Anki Deck"}
+        </button>
+      </div>
+
       {/* Match Score */}
       {analysis && (
         <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 mb-6">

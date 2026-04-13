@@ -219,6 +219,29 @@ export default function EditProfilePage() {
           </button>
         </div>
 
+        {/* Anki Export Preference */}
+        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+          <h2 className="text-base font-semibold text-slate-800 dark:text-white mb-2">Anki Flashcards</h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">Choose the export format for interview preparation flashcard decks.</p>
+          <div className="flex gap-2">
+            {(["both", "apkg", "csv"] as const).map((fmt) => (
+              <button
+                key={fmt}
+                onClick={async () => {
+                  await fetch(`/api/profiles/${id}`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ ankiExportFormat: fmt }),
+                  }).catch(() => {});
+                }}
+                className="px-4 py-1.5 rounded-lg text-sm font-medium border border-slate-200 dark:border-slate-600 hover:bg-blue-50 dark:hover:bg-slate-700"
+              >
+                {fmt === "both" ? "Both (.apkg + .txt)" : fmt === "apkg" ? ".apkg only" : ".txt/CSV only"}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Core Competencies */}
         <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
           <h2 className="text-base font-semibold text-slate-800 mb-4">Core Competencies</h2>

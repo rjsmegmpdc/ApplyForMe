@@ -439,6 +439,39 @@ export default function Home() {
                   >
                     Email Application
                   </button>
+                  <button
+                    onClick={async () => {
+                      if (!analysis?.applicationId) return;
+                      setGenerating("anki");
+                      try {
+                        const res = await fetch("/api/anki/generate", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ applicationId: analysis.applicationId }),
+                        });
+                        const data = await res.json();
+                        if (data.apkg) {
+                          const blob = new Blob([Uint8Array.from(atob(data.apkg), c => c.charCodeAt(0))], { type: "application/octet-stream" });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement("a"); a.href = url;
+                          a.download = `${analysis.jobTitle.replace(/\s+/g, "_")}_${analysis.company.replace(/\s+/g, "_")}.apkg`;
+                          a.click(); URL.revokeObjectURL(url);
+                        }
+                        if (data.csv) {
+                          const blob = new Blob([Uint8Array.from(atob(data.csv), c => c.charCodeAt(0))], { type: "text/tab-separated-values" });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement("a"); a.href = url;
+                          a.download = `${analysis.jobTitle.replace(/\s+/g, "_")}_${analysis.company.replace(/\s+/g, "_")}_anki.txt`;
+                          a.click(); URL.revokeObjectURL(url);
+                        }
+                      } catch (e) { console.error(e); }
+                      setGenerating(null);
+                    }}
+                    disabled={generating !== null || !analysis?.applicationId}
+                    className="px-5 py-2.5 bg-white/20 text-white border border-white/30 rounded-lg font-medium hover:bg-white/30 disabled:opacity-50 text-sm"
+                  >
+                    {generating === "anki" ? "..." : "Anki Deck"}
+                  </button>
                 </div>
               </div>
             </AuthGuard>
