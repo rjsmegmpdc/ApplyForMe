@@ -87,6 +87,7 @@ model User {
   certifications    Certification[]
   applications      Application[]
   priorityBenefits  PriorityBenefit[]
+  recruiterContacts RecruiterContact[]
 }
 
 model CoreCompetency {
@@ -163,6 +164,8 @@ model Application {
   salaryJson            String?
   hiringManagerName     String?
   hiringManagerResearch String?
+  status                String   @default("analysed")
+  appliedAt             DateTime?
   createdAt             DateTime @default(now())
 
   user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -178,4 +181,32 @@ model InterviewNote {
   sortOrder     Int     @default(0)
 
   application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+}
+
+model RecruiterContact {
+  id            String    @id @default(cuid())
+  userId        String
+  name          String
+  email         String?
+  phone         String?
+  company       String?
+  agency        String?
+  linkedinUrl   String?
+  notes         String?
+  lastContacted DateTime?
+  followUpDate  DateTime?
+  status        String    @default("active")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model EmailLog {
+  id            String   @id @default(cuid())
+  applicationId String?
+  toEmail       String
+  subject       String
+  sentAt        DateTime @default(now())
+  status        String   @default("sent")
 }

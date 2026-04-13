@@ -47,6 +47,12 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [researching, setResearching] = useState(false);
   const [generating, setGenerating] = useState<string | null>(null);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [emailTo, setEmailTo] = useState("");
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailMessage, setEmailMessage] = useState("");
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailResult, setEmailResult] = useState<{ success: boolean; error?: string } | null>(null);
 
   useEffect(() => {
     fetch("/api/profiles")
@@ -421,9 +427,95 @@ export default function Home() {
                       {generating === "briefing" ? "..." : "Briefing (.docx)"}
                     </button>
                   )}
+                  <button
+                    onClick={() => {
+                      setShowEmailModal(true);
+                      setEmailSubject(`Application: ${analysis?.jobTitle} — ${profile?.personal.name}`);
+                      setEmailMessage(`Dear Hiring Manager,\n\nPlease find attached my CV and cover letter for the ${analysis?.jobTitle} position.\n\nKind regards,\n${profile?.personal.name}`);
+                      setEmailResult(null);
+                    }}
+                    disabled={!profile}
+                    className="px-5 py-2.5 bg-white/20 text-white border border-white/30 rounded-lg font-medium hover:bg-white/30 disabled:opacity-50 text-sm"
+                  >
+                    Email Application
+                  </button>
                 </div>
               </div>
             </AuthGuard>
+
+            {/* Email Modal */}
+            {showEmailModal && analysis && profile && (
+              <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+                <h2 className="text-lg font-semibold text-slate-800 dark:text-white mb-4">Email Application</h2>
+                {emailResult && (
+                  <div className={`mb-4 p-3 rounded-lg text-sm ${emailResult.success ? "bg-green-50 dark:bg-green-900/20 border border-green-200 text-green-700 dark:text-green-300" : "bg-red-50 dark:bg-red-900/20 border border-red-200 text-red-700 dark:text-red-300"}`}>
+                    {emailResult.success ? "Email sent successfully!" : `Failed: ${emailResult.error}`}
+                  </div>
+                )}
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs text-slate-500 mb-1">To</label>
+                    <input type="email" value={emailTo} onChange={(e) => setEmailTo(e.target.value)} placeholder="recruiter@company.com" className="w-full p-2.5 border border-slate-200 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-slate-500 mb-1">Subject</label>
+                    <input type="text" value={emailSubject} onChange={(e) => setEmailSubject(e.target.value)} className="w-full p-2.5 border border-slate-200 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-slate-500 mb-1">Message</label>
+                    <textarea value={emailMessage} onChange={(e) => setEmailMessage(e.target.value)} rows={4} className="w-full p-2.5 border border-slate-200 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 resize-y focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                  <p className="text-xs text-slate-400">CV and cover letter will be attached as .docx files.</p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={async () => {
+                        if (!emailTo) return;
+                        setEmailSending(true);
+                        setEmailResult(null);
+                        try {
+                          // Generate docs as base64
+                          const cvDoc = generateCV(analysis, profile);
+                          const letterDoc = generateCoverLetter(analysis, profile, hiringManager || undefined);
+                          const cvBlob = await Packer.toBlob(cvDoc);
+                          const letterBlob = await Packer.toBlob(letterDoc);
+                          const toBase64 = (blob: Blob) => new Promise<string>((res) => {
+                            const reader = new FileReader();
+                            reader.onload = () => res((reader.result as string).split(",")[1]);
+                            reader.readAsDataURL(blob);
+                          });
+                          const cvB64 = await toBase64(cvBlob);
+                          const letterB64 = await toBase64(letterBlob);
+                          const safeName = profile.personal.name.replace(/\s+/g, "_");
+                          const result = await fetch("/api/email/send", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              to: emailTo,
+                              subject: emailSubject,
+                              message: emailMessage,
+                              applicationId: analysis.applicationId,
+                              attachments: [
+                                { filename: `${safeName}_CV.docx`, base64: cvB64, contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" },
+                                { filename: `${safeName}_Cover_Letter.docx`, base64: letterB64, contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" },
+                              ],
+                            }),
+                          });
+                          setEmailResult(await result.json());
+                        } catch (e) {
+                          setEmailResult({ success: false, error: "Send failed" });
+                        }
+                        setEmailSending(false);
+                      }}
+                      disabled={emailSending || !emailTo}
+                      className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      {emailSending ? "Sending..." : "Send Email"}
+                    </button>
+                    <button onClick={() => setShowEmailModal(false)} className="px-4 py-2 border border-slate-200 dark:border-slate-600 rounded-lg text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">Cancel</button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </main>
