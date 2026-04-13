@@ -2,29 +2,41 @@ import type { AnalysisResult } from "../job-analyzer";
 import type { UserProfile, CompanyResearch } from "../types";
 
 export interface Flashcard {
+  key?: string;
   front: string;
   back: string;
   tags: string[];
 }
 
-const CLOSING_QUESTIONS: Flashcard[] = [
+export interface QuestionPref {
+  rating: number;
+  favourite: boolean;
+  excluded: boolean;
+  notes: string | null;
+}
+
+export const CLOSING_QUESTIONS: Flashcard[] = [
   // ─── Pre-Close & Success Framing ───
   {
+    key: "closing-success-12m",
     front: "Closing: Success in 12 months",
     back: "\"Imagine I was successful in this role. In 12 months when we talk, what would I need to have done to be successful?\"<br><br><b>Why this works:</b> Forces the interviewer to articulate concrete expectations and reveals the real priorities behind the job description. Embeds your success in their thinking before the decision is made.",
     tags: ["closing", "power-question", "pre-close"],
   },
   {
+    key: "closing-good-vs-exceptional",
     front: "Closing: Good vs exceptional",
     back: "\"What separates someone who is good in this role from someone who is exceptional?\"<br><br><b>Why this works:</b> Reveals the unwritten success criteria and shows you're aiming higher than 'adequate'. They'll describe the person they actually want — compare it against yourself in real time.",
     tags: ["closing", "power-question", "pre-close"],
   },
   {
+    key: "closing-hesitations",
     front: "Closing: Address hesitations",
     back: "\"Is there anything about my background that gives you hesitation that I could address right now?\"<br><br><b>Why this works:</b> Gives you a chance to overcome objections before they write you off. Shows confidence and directness. Most candidates never ask — you get the last word.",
     tags: ["closing", "power-question", "pre-close"],
   },
   {
+    key: "closing-regret-hiring",
     front: "Closing: Make you regret hiring me",
     back: "\"What would make you regret hiring me?\"<br><br><b>Why this works:</b> More direct version of addressing hesitations — harder to deflect. Surfaces their real fears about the hire. Shows extreme confidence and self-awareness.",
     tags: ["closing", "power-question", "pre-close"],
@@ -32,26 +44,31 @@ const CLOSING_QUESTIONS: Flashcard[] = [
 
   // ─── Reveal the Real Role ───
   {
+    key: "closing-team-challenge",
     front: "Closing: Team's biggest challenge",
     back: "\"What does the team's biggest challenge look like right now, and how would this role help solve it?\"<br><br><b>Why this works:</b> Shows you're thinking about contribution from day one. Reveals the real pain points — not the sanitised job ad version.",
     tags: ["closing", "power-question", "real-role"],
   },
   {
+    key: "closing-predecessor",
     front: "Closing: Lessons from predecessor",
     back: "\"What is the one thing you wish the previous person in this role had done differently?\"<br><br><b>Why this works:</b> Reveals what went wrong before. Lets you position yourself as the solution. Shows you learn from others' mistakes.",
     tags: ["closing", "power-question", "real-role"],
   },
   {
+    key: "closing-first-90-days",
     front: "Closing: First 90 days reality",
     back: "\"What does the first 90 days actually look like — not the ideal version?\"<br><br><b>Why this works:</b> 'Not the ideal version' grants them permission to be honest. Reveals if there's a crisis waiting, a political mess, or an unclear mandate. Shows you're pragmatic, not naive.",
     tags: ["closing", "power-question", "real-role"],
   },
   {
+    key: "closing-key-relationships",
     front: "Closing: Key relationships",
     back: "\"Who would I need to build the strongest relationships with to succeed?\"<br><br><b>Why this works:</b> Uncovers informal power structures and political landscape. Shows you think systemically — not just task-level. Reveals who actually matters vs the org chart.",
     tags: ["closing", "power-question", "real-role"],
   },
   {
+    key: "closing-role-tension",
     front: "Closing: Tension between roles",
     back: "\"What's the tension between this role and the roles around it?\"<br><br><b>Why this works:</b> Senior candidates think in systems and interfaces, not just job descriptions. Shows organisational maturity. Surfaces turf wars, unclear boundaries, or political minefields nobody mentioned.",
     tags: ["closing", "power-question", "real-role", "seniority"],
@@ -59,26 +76,31 @@ const CLOSING_QUESTIONS: Flashcard[] = [
 
   // ─── Reveal Culture & Leadership Quality ───
   {
+    key: "closing-decisions",
     front: "Closing: How decisions get made",
     back: "\"How do decisions actually get made here?\"<br><br><b>Why this works:</b> Cuts through org chart fiction. Reveals power dynamics, bureaucracy, and whether you'll have real authority or just a title. Watch for hesitation — that's the answer.",
     tags: ["closing", "power-question", "culture"],
   },
   {
+    key: "closing-people-thrive",
     front: "Closing: People who thrive",
     back: "\"What do the people who've thrived here have in common?\"<br><br><b>Why this works:</b> Pattern elicitation — they'll describe the cultural archetype they actually reward, not what the values poster says. Compare it mentally against who you are. If it doesn't sound like you, that's data.",
     tags: ["closing", "power-question", "culture"],
   },
   {
+    key: "closing-things-go-wrong",
     front: "Closing: When things go wrong",
     back: "\"How does leadership respond when something goes wrong?\"<br><br><b>Why this works:</b> Nobody asks this. The answer tells you everything about psychological safety. Watch for over-rehearsed answers — that's a flag. Blame culture vs learning culture is revealed in seconds.",
     tags: ["closing", "power-question", "culture"],
   },
   {
+    key: "closing-unwritten-rules",
     front: "Closing: Unwritten rules",
     back: "\"What are the unwritten rules here that took people a while to figure out?\"<br><br><b>Why this works:</b> Disarms with informality, extracts real cultural norms. Good interviewers love this question; bad ones get uncomfortable. Either way, you learn something valuable.",
     tags: ["closing", "power-question", "culture"],
   },
   {
+    key: "closing-what-changed",
     front: "Closing: What changed most",
     back: "\"What's changed most about this team in the last year?\"<br><br><b>Why this works:</b> Surfaces instability, restructures, or culture shifts they won't volunteer. If the answer is 'a lot' — probe deeper. Stability or chaos are both useful to know before signing.",
     tags: ["closing", "power-question", "culture"],
@@ -86,6 +108,7 @@ const CLOSING_QUESTIONS: Flashcard[] = [
 
   // ─── Signal Seniority ───
   {
+    key: "closing-no-constraints",
     front: "Closing: Fix first with no constraints",
     back: "\"If budget or headcount weren't a constraint, what would you fix first?\"<br><br><b>Why this works:</b> Reveals strategic priorities and frustration points. Positions you as someone thinking at leadership level. Their answer tells you what they've been fighting for internally.",
     tags: ["closing", "power-question", "seniority"],
@@ -93,11 +116,13 @@ const CLOSING_QUESTIONS: Flashcard[] = [
 
   // ─── Create Memorable Impression ───
   {
+    key: "closing-no-one-asks",
     front: "Closing: Question no one asks",
     back: "\"What would you want someone to ask you that no one ever does?\"<br><br><b>Why this works:</b> Metacognitive flip — completely unexpected, makes you unforgettable. Some interviewers freeze — that's fine, you've already differentiated yourself from every other candidate.",
     tags: ["closing", "power-question", "memorable"],
   },
   {
+    key: "closing-what-excites",
     front: "Closing: What excites you",
     back: "\"What are you most excited about in the direction this team/company is heading?\"<br><br><b>Why this works:</b> Emotional mirroring — gets them talking about something they care about. People who feel heard and excited in an interview associate that feeling with you. Anchoring bias works in your favour.",
     tags: ["closing", "power-question", "memorable"],
@@ -134,7 +159,8 @@ const BEHAVIOURAL_TEMPLATES: Record<string, { front: string; backPrompt: string 
 export function generateFlashcards(
   analysis: AnalysisResult,
   profile: UserProfile,
-  companyResearch?: CompanyResearch
+  companyResearch?: CompanyResearch,
+  questionPrefs?: Record<string, QuestionPref>
 ): Flashcard[] {
   const cards: Flashcard[] = [];
   const roleTags = [analysis.jobTitle.toLowerCase().replace(/\s+/g, "-"), analysis.company.toLowerCase().replace(/\s+/g, "-")];
@@ -211,11 +237,25 @@ export function generateFlashcards(
     });
   }
 
-  // 7. Closing Questions — always included
+  // 7. Closing Questions — filtered by user preferences
   for (const q of CLOSING_QUESTIONS) {
+    const pref = q.key && questionPrefs ? questionPrefs[q.key] : undefined;
+
+    // Skip if user has excluded this question
+    if (pref?.excluded) continue;
+
+    const extraTags: string[] = [];
+    if (pref?.favourite) extraTags.push("favourite");
+    if (pref?.rating && pref.rating >= 4) extraTags.push("top-rated");
+
+    const back = pref?.notes
+      ? `${q.back}<br><br><b>Your notes:</b> ${pref.notes}`
+      : q.back;
+
     cards.push({
       ...q,
-      tags: [...roleTags, ...q.tags],
+      back,
+      tags: [...roleTags, ...q.tags, ...extraTags],
     });
   }
 

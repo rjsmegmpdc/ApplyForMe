@@ -87,6 +87,7 @@ model User {
   careerEntries     CareerEntry[]
   certifications    Certification[]
   applications      Application[]
+  questionPrefs     QuestionPreference[]
   priorityBenefits  PriorityBenefit[]
   recruiterContacts RecruiterContact[]
 }
@@ -210,6 +211,20 @@ model EmailLog {
   subject       String
   sentAt        DateTime @default(now())
   status        String   @default("sent")
+}
+
+model QuestionPreference {
+  id          String  @id @default(cuid())
+  userId      String
+  questionKey String
+  rating      Int     @default(0)
+  favourite   Boolean @default(false)
+  excluded    Boolean @default(false)
+  notes       String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, questionKey])
 }
 
 model ProcessedEmail {

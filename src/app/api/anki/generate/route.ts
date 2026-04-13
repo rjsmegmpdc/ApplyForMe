@@ -40,6 +40,13 @@ export async function POST(request: Request) {
   const user = await prisma.user.findUnique({ where: { id: app.userId }, select: { ankiExportFormat: true } });
   const exportFormat = format || user?.ankiExportFormat || "both";
 
+  // Load question preferences
+  const qPrefs = await prisma.questionPreference.findMany({ where: { userId: app.userId } });
+  const questionPrefs: Record<string, { rating: number; favourite: boolean; excluded: boolean; notes: string | null }> = {};
+  for (const p of qPrefs) {
+    questionPrefs[p.questionKey] = { rating: p.rating, favourite: p.favourite, excluded: p.excluded, notes: p.notes };
+  }
+
   // Parse company research if available
   let companyResearch = undefined;
   if (app.briefingJson) {
@@ -47,7 +54,7 @@ export async function POST(request: Request) {
   }
 
   // Generate flashcards
-  const cards = generateFlashcards(analysis, profile, companyResearch);
+  const cards = generateFlashcards(analysis, profile, companyResearch, questionPrefs);
   const deckName = `${analysis.jobTitle} - ${analysis.company}`;
 
   const result: { cardCount: number; csv?: string; apkg?: string } = {
