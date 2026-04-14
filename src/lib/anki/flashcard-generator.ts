@@ -156,11 +156,23 @@ const BEHAVIOURAL_TEMPLATES: Record<string, { front: string; backPrompt: string 
   ],
 };
 
+export interface CustomQuestionData {
+  id: string;
+  question: string;
+  desiredOutcome: string | null;
+  category: string;
+  status: string;
+  favourite: boolean;
+  excluded: boolean;
+  includeInDeck: boolean;
+}
+
 export function generateFlashcards(
   analysis: AnalysisResult,
   profile: UserProfile,
   companyResearch?: CompanyResearch,
-  questionPrefs?: Record<string, QuestionPref>
+  questionPrefs?: Record<string, QuestionPref>,
+  customQuestions?: CustomQuestionData[]
 ): Flashcard[] {
   const cards: Flashcard[] = [];
   const roleTags = [analysis.jobTitle.toLowerCase().replace(/\s+/g, "-"), analysis.company.toLowerCase().replace(/\s+/g, "-")];
@@ -259,7 +271,30 @@ export function generateFlashcards(
     });
   }
 
-  // 8. Tailored summary — for elevator pitch
+  // 8. Custom questions — user-created, moderated, approved only
+  if (customQuestions) {
+    for (const cq of customQuestions) {
+      if (cq.excluded || !cq.includeInDeck) continue;
+      if (cq.status !== "approved") continue; // Only approved questions make it to deck
+
+      const extraTags: string[] = ["custom"];
+      if (cq.favourite) extraTags.push("favourite");
+      if (cq.category !== "custom") extraTags.push(cq.category);
+
+      let back = cq.desiredOutcome
+        ? `<b>Desired outcome:</b> ${cq.desiredOutcome}`
+        : "Observe the interviewer's reaction and body language. Note what they emphasise.";
+
+      cards.push({
+        key: `custom-${cq.id}`,
+        front: cq.question,
+        back,
+        tags: [...roleTags, ...extraTags],
+      });
+    }
+  }
+
+  // 9. Tailored summary — for elevator pitch
   cards.push({
     front: "Give your 60-second elevator pitch for this role",
     back: analysis.tailoredSummary,

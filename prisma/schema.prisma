@@ -88,6 +88,7 @@ model User {
   certifications    Certification[]
   applications      Application[]
   questionPrefs     QuestionPreference[]
+  customQuestions   CustomQuestion[]
   priorityBenefits  PriorityBenefit[]
   recruiterContacts RecruiterContact[]
 }
@@ -225,6 +226,25 @@ model QuestionPreference {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, questionKey])
+}
+
+model CustomQuestion {
+  id              String   @id @default(cuid())
+  userId          String
+  question        String
+  desiredOutcome  String?
+  category        String   @default("custom")
+  basedOnKey      String?
+  status          String   @default("pending_review")
+  moderationNote  String?
+  rating          Int      @default(0)
+  favourite       Boolean  @default(false)
+  excluded        Boolean  @default(false)
+  includeInDeck   Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model ProcessedEmail {

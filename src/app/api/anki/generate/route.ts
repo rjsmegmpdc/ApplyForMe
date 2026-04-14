@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { loadProfile } from "@/lib/profile-loader";
-import { generateFlashcards } from "@/lib/anki/flashcard-generator";
+import { generateFlashcards, type CustomQuestionData } from "@/lib/anki/flashcard-generator";
 import { exportToCSV } from "@/lib/anki/csv-exporter";
 import { exportToAPKG } from "@/lib/anki/apkg-exporter";
 import { hasPermission, type Role } from "@/lib/auth-helpers";
@@ -47,6 +47,21 @@ export async function POST(request: Request) {
     questionPrefs[p.questionKey] = { rating: p.rating, favourite: p.favourite, excluded: p.excluded, notes: p.notes };
   }
 
+  // Load custom questions
+  const customQs = await prisma.customQuestion.findMany({
+    where: { userId: app.userId },
+  });
+  const customQuestions: CustomQuestionData[] = customQs.map((q) => ({
+    id: q.id,
+    question: q.question,
+    desiredOutcome: q.desiredOutcome,
+    category: q.category,
+    status: q.status,
+    favourite: q.favourite,
+    excluded: q.excluded,
+    includeInDeck: q.includeInDeck,
+  }));
+
   // Parse company research if available
   let companyResearch = undefined;
   if (app.briefingJson) {
@@ -54,7 +69,7 @@ export async function POST(request: Request) {
   }
 
   // Generate flashcards
-  const cards = generateFlashcards(analysis, profile, companyResearch, questionPrefs);
+  const cards = generateFlashcards(analysis, profile, companyResearch, questionPrefs, customQuestions);
   const deckName = `${analysis.jobTitle} - ${analysis.company}`;
 
   const result: { cardCount: number; csv?: string; apkg?: string } = {
