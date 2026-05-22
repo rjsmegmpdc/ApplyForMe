@@ -36,3 +36,13 @@ Next.js 16 | TypeScript | Tailwind CSS v4 | Prisma + SQLite | NextAuth.js v5 | d
 
 - [Product Requirements Document](docs/PRD.md)
 - [Implementation Plan](docs/IMPLEMENTATION.md)
+
+## Current Position
+
+Snapshot: 2026-05-21
+
+- Branch: `master`, clean except for `.claude/settings.local.json`
+- Last commit: 2026-04-14 — *Add custom questions with moderation, desired outcomes, and admin curation*
+- Recent files: `prisma/applyforme.db` (2026-04-14), `src/app/questions/page.tsx`
+- State: feature-complete pass; idle since mid-April
+- Note: overlap with `Strava-Weekly-Analysis_App\ideas.txt` (job-market scraping) — decide one home before both grow
