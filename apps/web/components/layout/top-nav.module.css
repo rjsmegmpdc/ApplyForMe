@@ -1,0 +1,21 @@
+.nav {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.link,
+.active {
+  padding: 4px 10px;
+  border-radius: 6px;
+  text-decoration: none;
+  color: var(--muted);
+}
+.link:hover {
+  color: var(--fg);
+  background: color-mix(in srgb, var(--line) 50%, transparent);
+}
+.active {
+  color: var(--fg);
+  font-weight: 600;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}

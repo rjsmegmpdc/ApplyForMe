@@ -1,0 +1,11 @@
+.tabs { display: flex; gap: 4px; margin-bottom: 12px; }
+.tab, .tabOn {
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+.tabOn { border-color: var(--line); background: var(--bg-1); color: var(--fg); font-weight: 600; }
+.json { min-height: 420px; }

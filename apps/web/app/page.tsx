@@ -1,8 +1,6 @@
+import { redirect } from 'next/navigation';
+
+/** The console lives under /runs, /profile, … — the root just forwards to the inbox. */
 export default function Home() {
-  return (
-    <main style={{ padding: 24 }}>
-      <h1>ApplyForMe</h1>
-      <p>Pipeline UI lands in the next task.</p>
-    </main>
-  );
+  redirect('/runs');
 }

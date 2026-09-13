@@ -9,6 +9,7 @@ import { z } from 'zod';
  * crashing.
  */
 
+// Non-string entries collapse to [] rather than failing the whole parse.
 const strArr = z.array(z.string()).catch([]);
 
 export const triggerViewSchema = z
@@ -59,11 +60,12 @@ export const tailoredViewSchema = z
   .passthrough();
 export type TailoredView = z.infer<typeof tailoredViewSchema>;
 
-function readJson<T>(text: string | null | undefined, schema: z.ZodType<T>): T | null {
+// Generic over the schema (not its output) so passthrough objects keep their declared field types.
+function readJson<S extends z.ZodTypeAny>(text: string | null | undefined, schema: S): z.output<S> | null {
   if (!text) return null;
   try {
     const parsed = schema.safeParse(JSON.parse(text));
-    return parsed.success ? parsed.data : null;
+    return parsed.success ? (parsed.data as z.output<S>) : null;
   } catch {
     return null;
   }
