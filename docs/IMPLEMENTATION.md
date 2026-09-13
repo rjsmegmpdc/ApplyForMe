@@ -181,3 +181,9 @@ WEBAUTHN_ORIGIN=http://localhost:3000
 8. **Batch processing**: Analyse multiple jobs simultaneously
 9. **AI cover letter enhancement**: Use LLM to improve prose quality
 10. **Recruiter CRM**: Track recruiter relationships and follow-ups
+
+---
+
+> **Superseded 2026-09-13.** This describes the retired v1 app, kept for history. The
+> v2 implementation is documented in [ARCHITECTURE.md](ARCHITECTURE.md) and
+> [SETUP.md](SETUP.md).

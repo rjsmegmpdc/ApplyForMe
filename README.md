@@ -1,48 +1,56 @@
 # ApplyForMe
 
-AI-powered CV and cover letter customiser for job applications.
+Reads the Seek.co.nz job alerts you already get, decides which ones are worth your
+time, tailors your CV and cover letter to each with Claude, and emails you the pack
+with the **Apply on Seek** link. You review and decide. The web app is for tuning the
+system, not running it.
 
-Paste a job description, get a tailored CV, cover letter, and recruiter briefing in seconds. Includes company web scraping, salary benchmarks, interview preparation, and hiring manager research.
+Everything runs on Cloudflare (Workers Paid, D1, R2, Email Routing, Email Service,
+Access) in one Worker. Design record: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+Setup: [docs/SETUP.md](docs/SETUP.md).
 
-## Features
+## How a job flows
 
-- **Job Analysis**: 12-category keyword matching with evidence-based scoring
-- **3 Document Outputs**: Tailored CV, cover letter, recruiter briefing (.docx)
-- **Company Research**: Web scraper finds homepage, about, team, careers pages
-- **Salary Data**: NZ/AU ranges for 10+ tech leadership roles
-- **Interview Prep**: Structured questions with post-call auto-populate
-- **Hiring Manager Research**: LinkedIn + company team page analysis
-- **Priority Benefits**: Configurable ranked benefits matched against job descriptions
-- **Multi-Profile**: Up to 10 profiles with file import (.docx, .xlsx, .json, .md, .txt)
-- **Auth**: PIN, OAuth (Microsoft/Google), Passkeys (WebAuthn), RBAC (Admin/User/Viewer)
-- **Dark Mode**: Full dark/light theme with persistence
+1. A Gmail filter forwards each Seek alert to `jobs@<your domain>`.
+2. Email Routing hands it to this Worker. The alert is parsed into listings and deduped.
+3. **Trigger rules** (keywords, preferred and excluded companies, locations, salary
+   floor, minimum match) decide whether the job earns any LLM spend.
+4. The full ad is fetched and scored against your master profile with evidence.
+5. Claude rewrites your summary, reorders your highlights, and drafts the letter.
+   A **claim guard** checks every employer, title, bullet, number, year and
+   certification against your profile. One repair pass is allowed; otherwise the
+   deterministic documents are sent and clearly labelled.
+6. You get one email: score, evidence, Apply link, CV and letter attached, and
+   one-click links for *Applied*, *Not for me*, *Regenerate with a note*, *Thumbs up*.
+7. Your feedback becomes preferences that steer the next pack.
 
-## Quick Start
+## Layout
+
+```
+packages/engine/   Pure TypeScript, zero I/O — analyse, parse, rules, claim guard, salary
+apps/web/          Next.js 15 on Cloudflare Workers (OpenNext) — server, pipeline, UI
+  server/          db (Drizzle/D1), identity (Access), ai, email, docs, pipeline
+  app/             UI (runs, profile, rules, preferences, settings) + API routes
+  worker.ts        fetch (Next) + email (Email Routing) + scheduled (cron) handlers
+docs/              ARCHITECTURE.md, SETUP.md, and the v1 PRD/plan for history
+```
+
+## Commands
 
 ```bash
 npm install
-npx prisma db push
-npx tsx prisma/seed.ts
-npm run dev
+npm test                 # vitest — engine + web (277 tests)
+npm run typecheck        # tsc — engine + web
+npm run dev              # next dev with miniflare-backed D1/R2
+npm run deploy           # opennextjs-cloudflare build && deploy
 ```
 
-Open http://localhost:3000 and login with `smharkness.nz@gmail.com` / PIN: `123456`
+Engine ground rules (same as AICoach): no `fetch`, `fs`, `Date.now()` or `Math.random()`
+in logic paths; every figure in any output traces to an input; same inputs, same output.
 
-## Tech Stack
+## Status
 
-Next.js 16 | TypeScript | Tailwind CSS v4 | Prisma + SQLite | NextAuth.js v5 | docx
-
-## Docs
-
-- [Product Requirements Document](docs/PRD.md)
-- [Implementation Plan](docs/IMPLEMENTATION.md)
-
-## Current Position
-
-Snapshot: 2026-05-21
-
-- Branch: `master`, clean except for `.claude/settings.local.json`
-- Last commit: 2026-04-14 — *Add custom questions with moderation, desired outcomes, and admin curation*
-- Recent files: `prisma/applyforme.db` (2026-04-14), `src/app/questions/page.tsx`
-- State: feature-complete pass; idle since mid-April
-- Note: overlap with `Strava-Weekly-Analysis_App\ideas.txt` (job-market scraping) — decide one home before both grow
+v2 foundation (2026-09-13): engine, server layer, pipeline and tuning UI built and
+tested; not yet deployed. Next: buy the domain, follow docs/SETUP.md, first live run.
+The v1 app (local Next/Prisma with NextAuth, research, interviews, Anki) is retired;
+its history is in git before the "Scaffold v2 workspace" commit.

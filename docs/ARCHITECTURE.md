@@ -2,7 +2,7 @@
 
 **Decided:** 2026-09-13 (Matt, with Claude Code). Supersedes the v1 PRD/implementation
 plan for the pipeline; v1's research/interview/Anki features are retired (history in
-`git log` and `legacy/v1` until removed).
+`git log` before the "Scaffold v2 workspace" commit).
 
 ## The goal, in one line
 
@@ -87,7 +87,6 @@ apps/web/          Next.js 15 (OpenNext) + Worker handlers
   server/          db (Drizzle), identity (Access), ai, email, docs, pipeline
   app/             UI + API routes
 docs/              this file, SETUP.md, the v1 PRD/plan for history
-legacy/v1/         the v1 app, kept only until every port lands
 ```
 
 ## Commands

@@ -153,3 +153,8 @@ A local-first web application that automates the entire application preparation 
 | File parsing | mammoth (docx), xlsx (SheetJS) |
 | WebAuthn | @simplewebauthn/server v9 |
 | Scraping | Native fetch with HTML parsing |
+
+---
+
+> **Superseded 2026-09-13.** This is the v1 product document, kept for history. The
+> v2 pipeline design is in [ARCHITECTURE.md](ARCHITECTURE.md).
