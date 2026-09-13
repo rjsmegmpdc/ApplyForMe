@@ -27,3 +27,18 @@ body {
   font: 15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 a { color: var(--accent); }
+
+/* Console additions: card surface, danger tone, radius. Light/dark follow color-scheme. */
+:root {
+  --bg-1: #ffffff;
+  --danger: #b42318;
+  --radius: 8px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-1: #171a1f;
+    --danger: #f08b82;
+  }
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.92em; }
