@@ -21,7 +21,7 @@
  * The API key is passed in by the resolver (server/ai/resolve-generate.ts)
  * and never leaves this module.
  */
-import Anthropic from '@anthropic-ai/sdk';
+import Anthropic, { type ClientOptions } from '@anthropic-ai/sdk';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import type { z } from 'zod/v4';
 import type { TailoredOutput } from '@applyforme/engine';
@@ -55,8 +55,9 @@ export interface GenerateResult {
 /** Function shape the pipeline depends on — tests inject a fake of this. */
 export type GenerateFn = (req: TailorRequest) => Promise<GenerateResult>;
 
-export function makeAnthropicGenerateFn(apiKey: string): GenerateFn {
-  const client = new Anthropic({ apiKey });
+/** `opts.fetch` lets tests stub the HTTP layer; production leaves it to the global fetch. */
+export function makeAnthropicGenerateFn(apiKey: string, opts: { fetch?: ClientOptions['fetch'] } = {}): GenerateFn {
+  const client = new Anthropic({ apiKey, fetch: opts.fetch, maxRetries: opts.fetch ? 0 : undefined });
   return async (req) => {
     const format = zodOutputFormat(req.schema);
     const response = await client.messages.create({
