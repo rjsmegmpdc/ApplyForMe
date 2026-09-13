@@ -2,7 +2,7 @@
   "name": "@applyforme/web",
   "version": "0.0.1",
   "private": true,
-  "description": "ApplyForMe web + worker \u2014 Next.js 15 on Cloudflare Workers (OpenNext), D1 + Drizzle. Email pipeline and tuning UI live here.",
+  "description": "ApplyForMe web + worker — Next.js 15 on Cloudflare Workers (OpenNext), D1 + Drizzle. Email pipeline and tuning UI live here.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -17,6 +17,7 @@
     "typecheck:worker": "tsc --noEmit -p tsconfig.worker.json"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.125.0",
     "@applyforme/engine": "*",
     "docx": "^9.6.1",
     "drizzle-orm": "^0.36.4",
