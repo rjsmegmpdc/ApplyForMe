@@ -1,0 +1,83 @@
+{
+	// Cloudflare Workers config for ApplyForMe v2 (OpenNext adapter).
+	// Layout mirrors AICoach's proven wrangler.jsonc.
+	//
+	// PLACEHOLDERS to replace at deploy:
+	//   d1_databases[0].database_id  — from `wrangler d1 create applyforme-db`
+	//   vars.EMAIL_FROM              — jobs@<your Cloudflare-registered domain>
+	//   vars.APP_BASE_URL            — the live hostname once Access covers it
+	//
+	// Secrets (set via `wrangler secret put`, NEVER in this file):
+	//   ANTHROPIC_API_KEY   — server-default key for tailoring (personal keys in the UI win)
+	//   TOKENS_ENC_KEY      — base64 32-byte AES-GCM key for credentials at rest (openssl rand -base64 32)
+	//   ACCESS_TEAM_DOMAIN  — Cloudflare Access team domain, e.g. "night-ninjas.cloudflareaccess.com"
+	//   ACCESS_APP_AUD      — the Access application's AUD tag for this app
+	//   ACTION_LINK_SECRET  — HMAC key that signs the one-click action links in review emails
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"main": "./worker.ts",
+	"name": "applyforme",
+	"compatibility_date": "2026-07-17",
+	"compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+
+	"workers_dev": true,
+	"preview_urls": false,
+
+	"assets": {
+		"directory": ".open-next/assets",
+		"binding": "ASSETS"
+	},
+
+	"services": [
+		{
+			// Self-reference service binding — required by OpenNext for the
+			// Cloudflare cache/ISR machinery. Service name must match "name".
+			"binding": "WORKER_SELF_REFERENCE",
+			"service": "applyforme"
+		}
+	],
+
+	// D1 — all app state. Migrations live alongside the Drizzle schema.
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "applyforme-db",
+			"database_id": "PLACEHOLDER-run-wrangler-d1-create",
+			"migrations_dir": "server/db/migrations"
+		}
+	],
+
+	"r2_buckets": [
+		{
+			// OpenNext incremental cache (ISR/data cache).
+			"binding": "NEXT_INC_CACHE_R2_BUCKET",
+			"bucket_name": "applyforme-opennext-cache"
+		},
+		{
+			// Generated CV / cover letter .docx files, keyed by run id, so the
+			// review email can link them and the UI can re-download.
+			"binding": "DOCS",
+			"bucket_name": "applyforme-docs"
+		}
+	],
+
+	// Cloudflare Email Service — outbound review emails (env.EMAIL.send).
+	// Requires the sending domain verified under Email Service in the dashboard.
+	"send_email": [{ "name": "EMAIL" }],
+
+	// Inbound: an Email Routing rule "jobs@<domain> → Send to a Worker →
+	// applyforme" delivers Seek alerts to the `email` handler in worker.ts.
+	// No config needed here beyond the handler existing.
+
+	// Scheduled sweep: retries runs stuck in 'pending' (e.g. Seek fetch
+	// timeout) and expires stale processed-email rows. Not the primary
+	// trigger — inbound email is.
+	"triggers": {
+		"crons": ["*/30 * * * *"]
+	},
+
+	"vars": {
+		"APP_BASE_URL": "https://applyforme.onlinemyassistant.workers.dev",
+		"EMAIL_FROM": "jobs@PLACEHOLDER-your-domain",
+		"EMAIL_FROM_NAME": "ApplyForMe"
+	}
+}

@@ -1,0 +1,45 @@
+{
+  "name": "@applyforme/web",
+  "version": "0.0.1",
+  "private": true,
+  "description": "ApplyForMe web + worker \u2014 Next.js 15 on Cloudflare Workers (OpenNext), D1 + Drizzle. Email pipeline and tuning UI live here.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "build:worker": "opennextjs-cloudflare build",
+    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate:local": "wrangler d1 migrations apply applyforme-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply applyforme-db --remote",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck:worker": "tsc --noEmit -p tsconfig.worker.json"
+  },
+  "dependencies": {
+    "@applyforme/engine": "*",
+    "docx": "^9.6.1",
+    "drizzle-orm": "^0.36.4",
+    "next": "^15.5.21",
+    "postal-mime": "^2.4.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250705.0",
+    "@opennextjs/cloudflare": "^1.3.0",
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/node": "^22.9.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "better-sqlite3": "^11.5.0",
+    "drizzle-kit": "^0.28.1",
+    "typescript": "^5.6.3",
+    "vitest": "^3.2.4",
+    "wrangler": "^4.20.0"
+  },
+  "engines": {
+    "node": ">=20.11.0"
+  }
+}

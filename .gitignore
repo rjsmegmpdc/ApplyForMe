@@ -1,7 +1,22 @@
 node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+.DS_Store
+
+# Next.js / OpenNext / Cloudflare Workers build + local dev state
 .next/
-prisma/applyforme.db
-.env.local
+.open-next/
+.wrangler/
+next-env.d.ts
+
+# secrets — never commit
+.dev.vars
+*.dev.vars
 .env
-*.db-journal
-extracted/
+.env.*
+!.env.example
+
+# v1 leftovers
+legacy/v1/node_modules/
+legacy/v1/prisma/*.db

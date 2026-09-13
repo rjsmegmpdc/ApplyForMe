@@ -1,0 +1,9 @@
+{
+  // Typechecks worker.ts, which imports the OpenNext-generated
+  // ./.open-next/worker.js — only present after `npm run build:worker`.
+  // Run via `npm run typecheck:worker` after a build; the main tsconfig
+  // excludes worker.ts so a clean checkout still typechecks.
+  "extends": "./tsconfig.json",
+  "include": ["cloudflare-env.d.ts", "worker.ts", ".open-next/worker.js"],
+  "exclude": ["node_modules", ".next"]
+}
