@@ -59,13 +59,21 @@ function safeFromCodePoint(code: number, fallback: string): string {
 /** Elements whose entire content is noise for text extraction. */
 const DROP_ELEMENTS = ['script', 'style', 'noscript', 'template', 'head', 'svg', 'iframe'];
 
-/** Elements whose boundaries should become line breaks. */
-const BLOCK_ELEMENTS = [
-  'p', 'div', 'li', 'ul', 'ol', 'br', 'hr', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-  'tr', 'td', 'th', 'table', 'thead', 'tbody', 'tfoot', 'section', 'article',
-  'header', 'footer', 'aside', 'nav', 'blockquote', 'pre', 'dd', 'dt', 'dl',
-  'center', 'main', 'figure', 'figcaption', 'address',
+/**
+ * Paragraph-level elements: both the opening and the closing tag become a
+ * line break, so `<p>a</p><p>b</p>` reads as two paragraphs.
+ */
+const PARAGRAPH_ELEMENTS = [
+  'p', 'div', 'ul', 'ol', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'table', 'section',
+  'article', 'header', 'footer', 'aside', 'nav', 'blockquote', 'pre', 'dl',
+  'center', 'main', 'figure', 'figcaption', 'address', 'br', 'hr',
 ];
+
+/**
+ * Item-level elements: only the opening tag breaks the line, so consecutive
+ * `<li>`/`<td>` items sit on adjacent lines without a blank between them.
+ */
+const ITEM_ELEMENTS = ['li', 'tr', 'td', 'th', 'thead', 'tbody', 'tfoot', 'dd', 'dt'];
 
 /**
  * Remove `<script>`, `<style>`, comments and similar non-content elements.
@@ -93,9 +101,9 @@ export function htmlToText(html: string): string {
   if (!html) return '';
   let out = stripNonContent(html);
 
-  const blockAlternation = BLOCK_ELEMENTS.join('|');
-  // Opening and closing block tags both become newlines.
-  out = out.replace(new RegExp(`<\\/?(?:${blockAlternation})\\b[^>]*>`, 'gi'), '\n');
+  out = out.replace(new RegExp(`<\\/?(?:${PARAGRAPH_ELEMENTS.join('|')})\\b[^>]*>`, 'gi'), '\n');
+  out = out.replace(new RegExp(`<(?:${ITEM_ELEMENTS.join('|')})\\b[^>]*>`, 'gi'), '\n');
+  out = out.replace(new RegExp(`<\\/(?:${ITEM_ELEMENTS.join('|')})\\s*>`, 'gi'), '');
   // Everything else becomes a space so adjacent inline text does not fuse.
   out = out.replace(/<[^>]+>/g, ' ');
 

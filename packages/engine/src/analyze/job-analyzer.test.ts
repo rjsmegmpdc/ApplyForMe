@@ -118,16 +118,23 @@ describe('analyzeJob', () => {
       ...FIXTURE_PROFILE,
       career_history: [],
       core_competencies: ['People leadership'],
-      certifications_and_training: [{ name: 'Microsoft Certified: Azure Fundamentals (AZ-900)', year: 2020 }],
+      certifications_and_training: [{ name: 'FinOps Certified Practitioner', year: 2020 }],
     };
     const a = analyzeJob(MODERN_WORKPLACE_AD, thinProfile);
     expect(a.missingSkills).toContain('Cloud & Infrastructure');
     expect(a.missingSkills).toContain('Microsoft 365');
+    expect(a.missingSkills).toContain('Financial Management');
     expect(a.recommendedCertifications).toContain('Microsoft 365 Certified: Fundamentals (MS-900)');
-    // Already held (matched on the exam code) is not recommended again.
-    expect(a.recommendedCertifications).not.toContain('Microsoft Certified: Azure Fundamentals (AZ-900)');
-    expect(a.recommendedCertifications).toContain('AWS Certified Cloud Practitioner');
+    expect(a.recommendedCertifications).toContain('Microsoft Certified: Azure Fundamentals (AZ-900)');
+    // Already held is not recommended again.
+    expect(a.recommendedCertifications).not.toContain('FinOps Certified Practitioner');
     expect(a.matchPercentage).toBeLessThan(30);
+  });
+
+  it('recognises a held certification by its exam code', () => {
+    const p = { ...FIXTURE_PROFILE, certifications_and_training: [{ name: 'Azure Fundamentals AZ-900 (Microsoft)', year: 2021 }] };
+    const r = recommendCertifications(['Cloud & Infrastructure'], p);
+    expect(r).toEqual(['AWS Certified Cloud Practitioner']);
   });
 
   it('includes benefit matches from the profile priorities', () => {

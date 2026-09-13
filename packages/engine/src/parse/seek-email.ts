@@ -40,7 +40,7 @@ export function canonicalSeekUrl(url: string): string | null {
 // Line classification
 // ---------------------------------------------------------------------------
 
-const BOILERPLATE_LINE_RE = /unsubscribe|manage\s+(?:your\s+)?(?:job\s*mail|alerts?)|privacy\s+policy|terms\s+(?:of\s+use|and\s+conditions)|©|copyright|seek\s+limited|you(?:'re|\s+are)\s+receiving|this\s+email\s+was\s+sent|update\s+your\s+preferences|\bjobmail\b|match(?:es|ing)?\s+your\s+(?:job\s*mail\s+)?alert|new\s+jobs?\s+match/i;
+const BOILERPLATE_LINE_RE = /unsubscribe|manage\s+(?:your\s+)?(?:job\s*mail|alerts?)|privacy\s+policy|terms\s+(?:of\s+use|and\s+conditions)|©|copyright|seek\s+limited|you(?:'re|\s+are)\s+receiving|this\s+email\s+was\s+sent|update\s+your\s+preferences|\bjobmail\b|match(?:es|ing)?\s+your\s+(?:job\s*mail\s+)?alert|^new\s+jobs?\b/i;
 const ACTION_LINE_RE = /^(?:view\s+(?:this\s+)?job|apply(?:\s+now)?|quick\s+apply|save(?:\s+job)?|share|featured|sponsored|promoted|ad|new|hot|posted\b.*|listed\b.*|\d+\s*[hdw]\s+ago|.*\b(?:hours?|days?|weeks?)\s+ago)\s*[:.]?$/i;
 const GREETING_RE = /^(?:hi|hello|dear|kia ora)\b[^,]{0,40},?$/i;
 const URL_ONLY_RE = /^(?:[a-z ]{0,20}:\s*)?https?:\/\/\S+$/i;
@@ -306,21 +306,23 @@ function extractSalaryAnywhere(text: string): string {
 function parseLegacy(text: string): JobListing[] {
   const jobs: JobListing[] = [];
 
-  // v1 block pattern: title line, company line, location line. (v1 collapsed
-  // all whitespace before running this, so it could never match; it runs on
-  // line-preserved text here.)
-  const jobBlockPattern = /([A-Z][^\n]{10,80})\n\s*(?:at\s+)?([A-Z][^\n]{3,60})\n\s*([A-Za-z\s,]+(?:Auckland|Wellington|Christchurch|Hamilton|Remote|New Zealand)[^\n]*)/g;
+  // v1's block pattern (title line, company line, location line) re-done
+  // line by line: v1 collapsed all whitespace before running it, so it could
+  // never match, and its location group could span newlines.
+  const lines = text.split('\n').map((l) => l.trim());
+  const isTitleLine = (l: string) => /^[A-Z].{10,80}$/.test(l) && !isBoilerplateLine(l);
+  const isCompanyLine = (l: string) => /^(?:at\s+)?[A-Z].{3,60}$/.test(l);
+  const isLegacyLocationLine = (l: string) =>
+    /^[A-Za-z ,]+(?:Auckland|Wellington|Christchurch|Hamilton|Remote|New Zealand)/.test(l);
 
-  let match: RegExpExecArray | null;
-  while ((match = jobBlockPattern.exec(text)) !== null) {
-    const title = match[1].trim();
-    const company = match[2].trim();
-    const location = match[3].trim();
-
-    if (isBoilerplateLine(title)) continue;
+  for (let i = 0; i + 2 < lines.length; i++) {
+    const title = lines[i];
+    const company = lines[i + 1].replace(/^at\s+/, '').trim();
+    const location = lines[i + 2];
+    if (!isTitleLine(title) || !isCompanyLine(lines[i + 1]) || !isLegacyLocationLine(location)) continue;
     if (title.length < 5 || company.length < 2) continue;
 
-    const after = text.slice(match.index + match[0].length, match.index + match[0].length + 1000);
+    const after = lines.slice(i + 3, i + 15).join('\n').slice(0, 1000);
     jobs.push({
       title,
       company,
@@ -329,6 +331,7 @@ function parseLegacy(text: string): JobListing[] {
       description: cleanDescription(after),
       url: '',
     });
+    i += 2;
   }
 
   if (jobs.length === 0 && text.length > 100) {
