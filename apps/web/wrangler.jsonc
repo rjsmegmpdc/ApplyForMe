@@ -4,8 +4,9 @@
 	//
 	// PLACEHOLDERS to replace at deploy:
 	//   d1_databases[0].database_id  — from `wrangler d1 create applyforme-db`
-	//   vars.EMAIL_FROM              — jobs@<your Cloudflare-registered domain>
-	//   vars.APP_BASE_URL            — the live hostname once Access covers it
+	// Domain: applyforme.dev (Cloudflare Registrar, 2026-09-14). The app lives at
+	// app.applyforme.dev (custom domain below — wrangler creates the DNS record on
+	// deploy); mail is sent from and received at jobs@applyforme.dev.
 	//
 	// Secrets (set via `wrangler secret put`, NEVER in this file):
 	//   ANTHROPIC_API_KEY   — server-default key for tailoring (personal keys in the UI win)
@@ -21,6 +22,9 @@
 
 	"workers_dev": true,
 	"preview_urls": false,
+
+	// Custom domain for the app. Access covers this hostname (docs/SETUP.md §8).
+	"routes": [{ "pattern": "app.applyforme.dev", "custom_domain": true }],
 
 	"assets": {
 		"directory": ".open-next/assets",
@@ -76,8 +80,8 @@
 	},
 
 	"vars": {
-		"APP_BASE_URL": "https://applyforme.onlinemyassistant.workers.dev",
-		"EMAIL_FROM": "jobs@PLACEHOLDER-your-domain",
+		"APP_BASE_URL": "https://app.applyforme.dev",
+		"EMAIL_FROM": "jobs@applyforme.dev",
 		"EMAIL_FROM_NAME": "ApplyForMe"
 	}
 }

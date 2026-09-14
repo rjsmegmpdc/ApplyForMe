@@ -6,14 +6,15 @@ the code reads the results from `apps/web/wrangler.jsonc` and Worker secrets.
 Account state assumed (confirmed 2026-09-13): Workers Paid, R2 Paid, Zero Trust (Teams
 Free) — all active.
 
-## 1. Domain
+## 1. Domain — done
 
-Buy a `.com` in **Cloudflare Registrar** (dashboard → Domain Registration → Register).
-It lands on Cloudflare DNS automatically. Note it below; every later step uses it.
+**applyforme.dev**, bought in Cloudflare Registrar on 2026-09-14, so DNS is already on
+Cloudflare. Hostnames used below:
 
-```
-DOMAIN = ______________________.com
-```
+| Purpose | Name |
+|---|---|
+| The app (UI + API, behind Access) | `app.applyforme.dev` — created by wrangler on deploy (`routes` in wrangler.jsonc) |
+| Mail in and out | `jobs@applyforme.dev` |
 
 Why not harkness.net.nz: it carries the family's mail via Email Routing. A dedicated
 domain keeps that untouched and gives the pipeline its own sending reputation.
@@ -42,16 +43,20 @@ npx wrangler secret put ACTION_LINK_SECRET
 
 ## 4. First deploy
 
-Edit `wrangler.jsonc` vars: `EMAIL_FROM = jobs@DOMAIN`, `APP_BASE_URL` (workers.dev for
-now, or `https://app.DOMAIN` once you add a custom domain to the Worker).
+`EMAIL_FROM` and `APP_BASE_URL` are already set in `wrangler.jsonc`; the only remaining
+placeholder is the D1 `database_id` from step 2.
 
 ```
 npm run deploy
 ```
 
+The first deploy also creates the `app.applyforme.dev` DNS record and certificate
+(custom domain route). Until step 8 is done the app is reachable by anyone, in dev
+mode (single user) — do step 8 straight after.
+
 ## 5. Email — sending (Cloudflare Email Service)
 
-Dashboard → Email → **Email Service** → Sending → add `DOMAIN`. Cloudflare adds the
+Dashboard → Email → **Email Service** → Sending → add `applyforme.dev`. Cloudflare adds the
 `cf-bounce` MX/SPF/DKIM/DMARC records itself because DNS is on Cloudflare. Wait for
 "Verified". The Worker already declares `"send_email": [{ "name": "EMAIL" }]`.
 
@@ -59,22 +64,22 @@ Sanity check after deploy: the UI's Settings page has a "Send test email" button
 
 ## 6. Email — receiving (Email Routing → Worker)
 
-Dashboard → Email → **Email Routing** on `DOMAIN` → Get started → let it add MX/SPF.
+Dashboard → Email → **Email Routing** on `applyforme.dev` → Get started → let it add MX/SPF.
 Then Routing rules → Create address:
 
 - Custom address: `jobs`
 - Action: **Send to a Worker** → `applyforme`
 
-## 7. Gmail → jobs@DOMAIN
+## 7. Gmail → jobs@applyforme.dev
 
 In the Gmail that receives the Seek alerts:
 
-1. Settings → Forwarding → **Add a forwarding address** → `jobs@DOMAIN`. Gmail sends a
+1. Settings → Forwarding → **Add a forwarding address** → `jobs@applyforme.dev`. Gmail sends a
    confirmation code to that address. The Worker logs it and shows it on the Settings
    page under "Forwarding confirmation" (it recognises Gmail's confirmation email).
    Enter the code in Gmail.
 2. Create a filter: `from:(seek.co.nz)` (or `subject:(job alert)`) → **Forward to**
-   `jobs@DOMAIN`. Optionally also "Skip inbox" so the raw alerts stop cluttering Gmail;
+   `jobs@applyforme.dev`. Optionally also "Skip inbox" so the raw alerts stop cluttering Gmail;
    the review email is what you read.
 
 Every matching alert now wakes the Worker within seconds.
@@ -83,8 +88,15 @@ Every matching alert now wakes the Worker within seconds.
 
 Zero Trust → Access → Applications → Add → Self-hosted:
 
-- Application domain: the Worker's hostname (workers.dev or `app.DOMAIN`)
+- Application domain: `app.applyforme.dev`
 - Policy: Allow → Emails → your email(s). Add a friend's email here to share.
+
+Then add a **second** self-hosted application so the one-click links in review emails
+work without a login prompt on whatever device you open them on:
+
+- Application domain: `app.applyforme.dev`, path `api/runs/*/action`
+- Policy: **Bypass** → Everyone. The link's own HMAC signature is the credential
+  (`lib/action-links.ts`); nothing else under `/api` is bypassed.
 - Copy the **Application Audience (AUD) tag** and your team domain
   (`<team>.cloudflareaccess.com`), then:
 
@@ -116,5 +128,5 @@ Without the `EMAIL` binding locally, sends are logged to the console instead.
 | Item | Cost |
 |---|---|
 | Workers Paid, R2, Email Service | already subscribed; usage inside included allowances |
-| Domain | ~USD 10.50 / year |
+| Domain (applyforme.dev) | ~USD 12 / year |
 | Claude Opus 5 tailoring, profile cached | cents per job |
