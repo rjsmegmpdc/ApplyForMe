@@ -51,7 +51,7 @@ in logic paths; every figure in any output traces to an input; same inputs, same
 ## Status
 
 v2 foundation (2026-09-13): engine, server layer, pipeline and tuning UI built and
-tested; domain applyforme.dev secured (2026-09-14); not yet deployed. Next: docs/SETUP.md
-steps 2–9, then the first live alert.
+tested; deployed to app.applyforme.dev (2026-09-16, fail-closed until Access is configured).
+Next: docs/SETUP.md steps 5–9, then the first live alert.
 The v1 app (local Next/Prisma with NextAuth, research, interviews, Anki) is retired;
 its history is in git before the "Scaffold v2 workspace" commit.

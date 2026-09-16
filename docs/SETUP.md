@@ -22,36 +22,29 @@ domain keeps that untouched and gives the pipeline its own sending reputation.
 ## 2. D1 database and R2 buckets — created
 
 Created via the API on 2026-09-16: D1 `applyforme-db` (id already in `wrangler.jsonc`),
-R2 `applyforme-opennext-cache` and `applyforme-docs`. Still to run, from `apps/web`:
+R2 `applyforme-opennext-cache` and `applyforme-docs`. Migrations applied 2026-09-16 (`npm run db:migrate:remote` for future schema changes).
 
-```
-npm run db:migrate:remote
-```
+## 3. Secrets — two of three set
 
-## 3. Secrets
+`TOKENS_ENC_KEY` and `ACTION_LINK_SECRET` were generated and set on 2026-09-16. Still
+needed for live tailoring, either:
 
-```
-openssl rand -base64 32     # → TOKENS_ENC_KEY
-openssl rand -hex 32        # → ACTION_LINK_SECRET
-npx wrangler secret put ANTHROPIC_API_KEY
-npx wrangler secret put TOKENS_ENC_KEY
-npx wrangler secret put ACTION_LINK_SECRET
-```
+- **Preferred:** once Access is on (step 8), open the app → Settings → Anthropic key and
+  paste your key there. It is encrypted at rest with `TOKENS_ENC_KEY` and wins over any
+  server key. Or
+- `npx wrangler secret put ANTHROPIC_API_KEY` from `apps/web` for a server-wide default.
+
+Until one exists the pipeline still runs and still emails you, using the deterministic
+documents (marked as such in the email).
 
 The Access values are not secrets; they are `vars` in `wrangler.jsonc` (step 8).
 
-## 4. First deploy
+## 4. First deploy — done
 
-`EMAIL_FROM` and `APP_BASE_URL` are already set in `wrangler.jsonc`; the only remaining
-placeholder is the D1 `database_id` from step 2.
-
-```
-npm run deploy
-```
-
-The first deploy also creates the `app.applyforme.dev` DNS record and certificate
-(custom domain route). Until step 8 is done the app is reachable by anyone, in dev
-mode (single user) — do step 8 straight after.
+Deployed 2026-09-16: `https://app.applyforme.dev` (custom domain created by wrangler)
+and `https://applyforme.onlinemyassistant.workers.dev`, cron `*/30 * * * *`, migrations
+applied. Every request currently returns 401 because the Access vars are placeholders
+(step 8). Redeploy after any config change with `npm run deploy` from `apps/web`.
 
 ## 5. Email — sending (Cloudflare Email Service)
 
