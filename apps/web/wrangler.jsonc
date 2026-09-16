@@ -2,8 +2,7 @@
 	// Cloudflare Workers config for ApplyForMe v2 (OpenNext adapter).
 	// Layout mirrors AICoach's proven wrangler.jsonc.
 	//
-	// PLACEHOLDERS to replace at deploy:
-	//   d1_databases[0].database_id  — from `wrangler d1 create applyforme-db`
+	// Resources created 2026-09-16 via the API: D1 applyforme-db, R2 buckets below.
 	// Domain: applyforme.dev (Cloudflare Registrar, 2026-09-14). The app lives at
 	// app.applyforme.dev (custom domain below — wrangler creates the DNS record on
 	// deploy); mail is sent from and received at jobs@applyforme.dev.
@@ -45,7 +44,7 @@
 		{
 			"binding": "DB",
 			"database_name": "applyforme-db",
-			"database_id": "PLACEHOLDER-run-wrangler-d1-create",
+			"database_id": "cf25195f-8c6e-4a2d-9bf8-743af2db0bee",
 			"migrations_dir": "server/db/migrations"
 		}
 	],
