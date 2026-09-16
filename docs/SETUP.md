@@ -38,7 +38,7 @@ npx wrangler secret put TOKENS_ENC_KEY
 npx wrangler secret put ACTION_LINK_SECRET
 ```
 
-`ACCESS_TEAM_DOMAIN` and `ACCESS_APP_AUD` come from step 6.
+The Access values are not secrets; they are `vars` in `wrangler.jsonc` (step 8).
 
 ## 4. First deploy
 
@@ -97,15 +97,14 @@ work without a login prompt on whatever device you open them on:
 - Policy: **Bypass** → Everyone. The link's own HMAC signature is the credential
   (`lib/action-links.ts`); nothing else under `/api` is bypassed.
 - Copy the **Application Audience (AUD) tag** and your team domain
-  (`<team>.cloudflareaccess.com`), then:
+  (`<team>.cloudflareaccess.com`) into the `ACCESS_TEAM_DOMAIN` / `ACCESS_APP_AUD`
+  vars in `apps/web/wrangler.jsonc`, replacing the `pending…` placeholders, then
+  `npm run deploy` again.
 
-```
-npx wrangler secret put ACCESS_TEAM_DOMAIN
-npx wrangler secret put ACCESS_APP_AUD
-```
-
-Until these two secrets exist the app runs in dev mode (single user, no login) — fine
-locally, not for a public hostname.
+While the placeholders are in place every UI/API request returns 401 — the deployed app
+is never open in single-user mode. The email and cron handlers do not use identity, so
+the pipeline itself is unaffected. Locally, `.dev.vars` sets both empty, which turns on
+the single-user dev fallback.
 
 ## 9. Seed your profile and rules
 

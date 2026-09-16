@@ -81,6 +81,13 @@
 	"vars": {
 		"APP_BASE_URL": "https://app.applyforme.dev",
 		"EMAIL_FROM": "jobs@applyforme.dev",
-		"EMAIL_FROM_NAME": "ApplyForMe"
+		"EMAIL_FROM_NAME": "ApplyForMe",
+		// Cloudflare Access identity (server/identity.ts). Neither value is a secret,
+		// so they live here as vars. While they hold these placeholders every UI/API
+		// request fails closed (401) — the app is never public in single-user mode.
+		// Replace with the real team domain and the Access app's AUD tag (docs/SETUP.md §8),
+		// then redeploy. Local `next dev`: .dev.vars sets both empty → dev-mode fallback.
+		"ACCESS_TEAM_DOMAIN": "pending.cloudflareaccess.com",
+		"ACCESS_APP_AUD": "pending-set-after-access-app-created"
 	}
 }

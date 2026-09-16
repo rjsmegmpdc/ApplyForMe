@@ -2,6 +2,7 @@
 ANTHROPIC_API_KEY=
 TOKENS_ENC_KEY=
 ACTION_LINK_SECRET=
-# Leave ACCESS_* unset locally: identity falls back to user 1 (dev-mode escape hatch).
-# ACCESS_TEAM_DOMAIN=
-# ACCESS_APP_AUD=
+# Empty locally overrides the fail-closed placeholders in wrangler.jsonc vars, so
+# identity falls back to user 1 (dev-mode escape hatch). Never set these empty in prod.
+ACCESS_TEAM_DOMAIN=
+ACCESS_APP_AUD=

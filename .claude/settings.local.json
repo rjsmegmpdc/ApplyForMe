@@ -24,7 +24,14 @@
       "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" auth status)",
       "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" repo create ApplyForMe --public --source=. --remote=origin --push --description \"AI-powered CV and cover letter customiser for job applications\")",
       "Bash(timeout 15)",
-      "Bash(ping -n 10 127.0.0.1)"
+      "Bash(ping -n 10 127.0.0.1)",
+      "Bash(npx wrangler:*)",
+      "Bash(wrangler:*)",
+      "Bash(npm run deploy)",
+      "Bash(npm run deploy:*)",
+      "Bash(npm run db:migrate:remote)",
+      "Bash(npm run db:migrate:remote:*)",
+      "Bash(npm run build:worker:*)"
     ]
   }
 }
