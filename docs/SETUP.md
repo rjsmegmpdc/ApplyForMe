@@ -19,13 +19,12 @@ Cloudflare. Hostnames used below:
 Why not harkness.net.nz: it carries the family's mail via Email Routing. A dedicated
 domain keeps that untouched and gives the pipeline its own sending reputation.
 
-## 2. D1 database and R2 buckets
+## 2. D1 database and R2 buckets — created
+
+Created via the API on 2026-09-16: D1 `applyforme-db` (id already in `wrangler.jsonc`),
+R2 `applyforme-opennext-cache` and `applyforme-docs`. Still to run, from `apps/web`:
 
 ```
-cd apps/web
-npx wrangler d1 create applyforme-db          # paste the database_id into wrangler.jsonc
-npx wrangler r2 bucket create applyforme-opennext-cache
-npx wrangler r2 bucket create applyforme-docs
 npm run db:migrate:remote
 ```
 
