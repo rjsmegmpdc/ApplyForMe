@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { SEEK_ALERT_HTML, SEEK_ALERT_JOB_IDS } from '../../../../packages/engine/src/__fixtures__/seek-alert';
 import { DEFAULT_TRIGGER_RULES } from '@applyforme/engine';
+import { eq } from 'drizzle-orm';
 import { schema } from '@/server/db';
+import { createTestDb } from '@/server/test/db';
 import { findProcessedEmail, listPreferences, saveTriggerRules } from '@/server/runs';
 import { processInboundEmail } from './inbound-handler';
 import { USER, VALID_OUTPUT, fakeDeps, scriptedGenerate, setupDb } from './test-support';
@@ -62,6 +64,18 @@ describe('processInboundEmail', () => {
     expect(prefs[0]).toMatchObject({ kind: 'note', source: 'feedback', text: 'Gmail forwarding confirmation code: 553914227' });
     expect((await findProcessedEmail(db, 'fwd-confirm@google.com'))?.status).toBe('ignored');
     expect(sent).toHaveLength(0);
+  });
+
+  it('survives a database with no users row at all (regression: FK failure bounced Gmail confirmations)', async () => {
+    const { db } = createTestDb();
+    await db.delete(schema.users); // simulate a pre-0001 database: no default user
+    const { deps } = fakeDeps({ db });
+    const { waitUntil, settle } = collector();
+    const outcome = await processInboundEmail(FORWARD_CONFIRMATION, deps, waitUntil);
+    await settle();
+    expect(outcome).toEqual({ kind: 'forward-confirmation', code: '553914227' });
+    expect(await db.query.users.findFirst({ where: eq(schema.users.id, USER) })).toBeTruthy();
+    expect(await listPreferences(db, USER)).toHaveLength(1);
   });
 
   it('non-Seek mail is recorded as ignored and creates no runs', async () => {
