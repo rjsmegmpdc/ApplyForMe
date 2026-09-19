@@ -102,3 +102,17 @@ export function extractForwardConfirmationCode(email: InboundEmail): string | nu
   const anyCode = body.match(/\b(\d{6,})\b/);
   return anyCode ? anyCode[1] : null;
 }
+
+/**
+ * Gmail's confirmation email also carries a one-click verification link
+ * (mail-settings.google.com/mail/vf-…). Some Gmail layouts hide the code
+ * entry box, so the link is the more reliable way to complete verification.
+ * Decodes HTML entities in href values; null when no such link is present.
+ */
+export function extractForwardConfirmationLink(email: InboundEmail): string | null {
+  if (!/forwarding confirmation/i.test(email.subject)) return null;
+  const body = `${email.text ?? ''}\n${email.html ?? ''}`;
+  const m = body.match(/https?:\/\/mail-settings\.google\.com\/mail\/vf-[^\s"'<>]+/i);
+  if (!m) return null;
+  return m[0].replace(/&amp;/g, '&').replace(/[.,;)]+$/, '');
+}

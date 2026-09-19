@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { readRawMessage, parseInboundEmail, isSeekAlert, extractForwardConfirmationCode, type InboundEmail } from './inbound';
+import { readRawMessage, parseInboundEmail, isSeekAlert, extractForwardConfirmationCode, extractForwardConfirmationLink, type InboundEmail } from './inbound';
 
 /** Hand-built MIME fixtures — CRLF line endings as the wire format uses. */
 function mime(lines: string[]): string {
@@ -148,5 +148,17 @@ describe('extractForwardConfirmationCode', () => {
   it('returns null for anything that is not a forwarding confirmation', async () => {
     expect(extractForwardConfirmationCode(await parseInboundEmail(SEEK_ALERT))).toBeNull();
     expect(extractForwardConfirmationCode(await parseInboundEmail(UNRELATED))).toBeNull();
+  });
+});
+
+describe('extractForwardConfirmationLink', () => {
+  it('returns the mail-settings verification link from a Gmail confirmation', async () => {
+    const email = await parseInboundEmail(FORWARD_CONFIRMATION);
+    expect(extractForwardConfirmationLink(email)).toBe('https://mail-settings.google.com/mail/vf-%5BANGjdJ8%5D-abc');
+  });
+
+  it('returns null for mail that is not a forwarding confirmation', async () => {
+    const email = await parseInboundEmail(UNRELATED);
+    expect(extractForwardConfirmationLink(email)).toBeNull();
   });
 });
