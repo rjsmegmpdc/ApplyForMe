@@ -22,6 +22,10 @@
 	"workers_dev": true,
 	"preview_urls": false,
 
+	// Workers Logs — keeps handler output (email/scheduled included) queryable in
+	// the dashboard after the fact, which `wrangler tail` cannot do.
+	"observability": { "enabled": true, "head_sampling_rate": 1 },
+
 	// Custom domain for the app. Access covers this hostname (docs/SETUP.md §8).
 	"routes": [{ "pattern": "app.applyforme.dev", "custom_domain": true }],
 
