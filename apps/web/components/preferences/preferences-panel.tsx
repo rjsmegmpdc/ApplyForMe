@@ -18,10 +18,11 @@ export interface PreferenceDto {
   createdAt: string;
 }
 
-const KIND_TONE: Record<Preference['kind'], Tone> = { tone: 'accent', avoid: 'warn', emphasise: 'ok', note: 'muted' };
+const KIND_TONE: Record<Preference['kind'], Tone> = { tone: 'accent', avoid: 'warn', emphasise: 'ok', note: 'muted', exemplar: 'accent' };
 const KIND_HELP: Record<Preference['kind'], string> = {
   tone: 'How the writing should sound — "direct, no fluff", "warm but concise".',
   avoid: 'Words or angles to keep out — "buzzwords", "no mention of database admin".',
+  exemplar: 'A whole CV or cover letter you were happy with. Steers voice, rhythm and structure only — facts always come from your profile.',
   emphasise: 'What to lead with — "Copilot Studio rollout", "cost governance".',
   note: 'Anything else the tailoring prompt should know.',
 };
@@ -73,6 +74,7 @@ export function PreferencesPanel({ initial }: { initial: PreferenceDto[] }) {
         <div className={styles.addRow}>
           <select className={form.select} value={kind} onChange={(e) => setKind(e.target.value as Preference['kind'])} aria-label="Kind">
             <option value="tone">tone</option>
+            <option value="exemplar">exemplar (a whole CV or letter you were happy with)</option>
             <option value="avoid">avoid</option>
             <option value="emphasise">emphasise</option>
             <option value="note">note</option>

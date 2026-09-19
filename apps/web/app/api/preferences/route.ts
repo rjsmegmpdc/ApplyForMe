@@ -12,7 +12,7 @@ import { listPreferences } from '@/server/runs';
 export const runtime = 'nodejs';
 
 const createSchema = z.object({
-  kind: z.enum(['tone', 'avoid', 'emphasise', 'note']),
+  kind: z.enum(['tone', 'avoid', 'emphasise', 'note', 'exemplar']),
   text: z.string().trim().min(1).max(1000),
 });
 

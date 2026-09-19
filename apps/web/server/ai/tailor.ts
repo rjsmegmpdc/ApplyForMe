@@ -93,9 +93,28 @@ const PREFERENCE_LABEL: Record<string, string> = {
 };
 
 /** The user's steering notes as a stable block, "(none yet)" when empty so the block shape never changes. */
+/** Max characters of each exemplar document placed in the prompt (a full CV or letter fits). */
+export const EXEMPLAR_MAX_CHARS = 9000;
+
+/**
+ * Whole documents the candidate was happy with (kind 'exemplar'). They steer
+ * voice, sentence rhythm, bullet shape and letter structure — never facts:
+ * the FACT SHEET remains the only source of employers, dates and numbers,
+ * and the claim guard still checks every claim against it.
+ */
+export function renderExemplars(preferences: TailorPreference[]): string {
+  const docs = preferences.filter((p) => p.kind === 'exemplar' && p.text.trim().length > 0);
+  if (docs.length === 0) return 'STYLE EXEMPLARS\n\n(none yet)';
+  const parts = ['STYLE EXEMPLARS', '', 'Documents the candidate wrote and was happy with. Match their voice, register, sentence length, bullet shape and letter structure. Do NOT copy facts, numbers or claims from them — every fact must come from the FACT SHEET.'];
+  docs.forEach((d, i) => {
+    parts.push('', `--- Exemplar ${i + 1} ---`, d.text.trim().slice(0, EXEMPLAR_MAX_CHARS));
+  });
+  return parts.join('\n');
+}
+
 export function renderTuningNotes(preferences: TailorPreference[]): string {
   const lines = ['Tuning notes from the candidate (apply these; they refine the style rules above):'];
-  const cleaned = preferences.map((p) => ({ kind: p.kind, text: p.text.trim() })).filter((p) => p.text.length > 0);
+  const cleaned = preferences.filter((p) => p.kind !== 'exemplar').map((p) => ({ kind: p.kind, text: p.text.trim() })).filter((p) => p.text.length > 0);
   if (cleaned.length === 0) {
     lines.push('- (none yet)');
     return lines.join('\n');
@@ -111,6 +130,7 @@ export function buildTailorPrompt(input: TailorInput): { system: Anthropic.TextB
   const system: Anthropic.TextBlockParam[] = [
     { type: 'text', text: RULES },
     { type: 'text', text: renderTuningNotes(input.preferences) },
+    { type: 'text', text: renderExemplars(input.preferences) },
     { type: 'text', text: `FACT SHEET\n\n${profileFactsText(input.profile)}`, cache_control: { type: 'ephemeral' } },
   ];
 

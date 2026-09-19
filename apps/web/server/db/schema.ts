@@ -107,7 +107,7 @@ export const preferences = sqliteTable(
       .notNull()
       .default(DEFAULT_USER_ID)
       .references(() => users.id),
-    kind: text('kind', { enum: ['tone', 'avoid', 'emphasise', 'note'] }).notNull(),
+    kind: text('kind', { enum: ['tone', 'avoid', 'emphasise', 'note', 'exemplar'] }).notNull(),
     text: text('text').notNull(),
     source: text('source', { enum: ['manual', 'feedback'] }).notNull().default('manual'),
     /** The run whose feedback produced this preference — null for manual entries. */

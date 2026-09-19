@@ -31,18 +31,19 @@ describe('tailoredOutputSchema', () => {
 describe('buildTailorPrompt', () => {
   it('puts rules, tuning notes, then the fact sheet (with the cache breakpoint) in the system prompt', () => {
     const { system } = buildTailorPrompt(input({ preferences: [{ kind: 'tone', text: 'direct, no fluff' }, { kind: 'avoid', text: 'the word synergy' }] }));
-    expect(system).toHaveLength(3);
+    expect(system).toHaveLength(4);
     expect(system[0].text).toMatch(/NEVER add an employer/);
     expect(system[0].cache_control).toBeUndefined();
     expect(system[1].text).toContain('Tone: direct, no fluff');
     expect(system[1].text).toContain('Avoid: the word synergy');
-    expect(system[2].text).toContain('FACT SHEET');
-    expect(system[2].cache_control).toEqual({ type: 'ephemeral' });
+    expect(system[2].text).toContain('STYLE EXEMPLARS');
+    expect(system[3].text).toContain('FACT SHEET');
+    expect(system[3].cache_control).toEqual({ type: 'ephemeral' });
   });
 
   it('the fact sheet contains every profile highlight and certification; the user turn carries the job and the full ad text', () => {
     const { system, user } = buildTailorPrompt(input());
-    const facts = system[2].text;
+    const facts = system[3].text;
     for (const role of FIXTURE_PROFILE.career_history) {
       expect(facts).toContain(role.title);
       expect(facts).toContain(role.company);
@@ -151,5 +152,23 @@ describe('deterministicTailored', () => {
     const out: TailoredOutput = deterministicTailored(inp);
     expect(out.coverLetter.paragraphs.length).toBeGreaterThanOrEqual(2);
     expect(checkClaims(out, FIXTURE_PROFILE, chefText).ok).toBe(true);
+  });
+});
+
+describe('exemplars in the prompt', () => {
+  it('renders exemplar preferences as a separate block and keeps them out of tuning notes', async () => {
+    const { renderExemplars, renderTuningNotes } = await import('./tailor');
+    const prefs = [
+      { kind: 'tone', text: 'Warm but direct.' },
+      { kind: 'exemplar', text: 'Kia ora,\nI am applying because it is the work I do today.\nNgā mihi,\nMatt' },
+    ];
+    expect(renderTuningNotes(prefs)).not.toMatch(/Kia ora/);
+    expect(renderExemplars(prefs)).toMatch(/Exemplar 1/);
+    expect(renderExemplars([])).toMatch(/none yet/);
+    const { system } = buildTailorPrompt(input({ preferences: prefs }));
+    const exemplarIdx = system.findIndex((b) => b.text.startsWith('STYLE EXEMPLARS'));
+    const factIdx = system.findIndex((b) => b.text.startsWith('FACT SHEET'));
+    expect(exemplarIdx).toBeGreaterThan(0);
+    expect(exemplarIdx).toBeLessThan(factIdx);
   });
 });
