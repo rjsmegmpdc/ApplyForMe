@@ -104,15 +104,27 @@ export function extractForwardConfirmationCode(email: InboundEmail): string | nu
 }
 
 /**
- * Gmail's confirmation email also carries a one-click verification link
- * (mail-settings.google.com/mail/vf-…). Some Gmail layouts hide the code
- * entry box, so the link is the more reliable way to complete verification.
- * Decodes HTML entities in href values; null when no such link is present.
+ * Gmail's confirmation email also carries a one-click verification link. Some
+ * Gmail layouts hide the code entry box, so the link is the more reliable way
+ * to complete verification. Google has used more than one link shape over
+ * time, so this returns every google.com URL in the message (href values and
+ * bare URLs, entities decoded, tracking wrappers left intact), most specific
+ * first: anything containing "vf-" or "verif" is sorted to the front.
+ * Empty array when the message is not a forwarding confirmation.
  */
+export function extractForwardConfirmationLinks(email: InboundEmail): string[] {
+  if (!/forwarding confirmation/i.test(email.subject)) return [];
+  const body = `${email.text ?? ''}\n${email.html ?? ''}`.replace(/&amp;/g, '&').replace(/=\r?\n/g, '');
+  const urls = new Set<string>();
+  for (const m of body.matchAll(/https?:\/\/[^\s"'<>)\]]+/gi)) {
+    const url = m[0].replace(/[.,;:]+$/, '');
+    if (/\.google\.com\//i.test(url) && !/\/support\.|policies\.google|accounts\.google\.com\/TOS/i.test(url)) urls.add(url);
+  }
+  const score = (u: string) => (/vf-|verif|confirm/i.test(u) ? 0 : 1);
+  return [...urls].sort((a, b) => score(a) - score(b));
+}
+
+/** First (most likely) verification link, for callers that want one string. */
 export function extractForwardConfirmationLink(email: InboundEmail): string | null {
-  if (!/forwarding confirmation/i.test(email.subject)) return null;
-  const body = `${email.text ?? ''}\n${email.html ?? ''}`;
-  const m = body.match(/https?:\/\/mail-settings\.google\.com\/mail\/vf-[^\s"'<>]+/i);
-  if (!m) return null;
-  return m[0].replace(/&amp;/g, '&').replace(/[.,;)]+$/, '');
+  return extractForwardConfirmationLinks(email)[0] ?? null;
 }

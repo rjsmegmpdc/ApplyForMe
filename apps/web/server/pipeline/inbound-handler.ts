@@ -21,7 +21,7 @@
 import { parseSeekAlert, type JobListing } from '@applyforme/engine';
 import { dbFromEnv, schema } from '@/server/db';
 import { DEFAULT_USER_ID } from '@/server/db/schema';
-import { extractForwardConfirmationCode, extractForwardConfirmationLink, isSeekAlert, parseInboundEmail, readRawMessage, type InboundEmail } from '@/server/email/inbound';
+import { extractForwardConfirmationCode, extractForwardConfirmationLinks, isSeekAlert, parseInboundEmail, readRawMessage, type InboundEmail } from '@/server/email/inbound';
 import { resolveSendFn } from '@/server/email/send';
 import { resolveGenerateFn } from '@/server/ai/resolve-generate';
 import { ensureDefaultUser, findProcessedEmail, recordProcessedEmail } from '@/server/runs';
@@ -118,12 +118,13 @@ export async function processInboundEmail(raw: string, deps: PipelineDeps, waitU
 
   const code = extractForwardConfirmationCode(email);
   if (code) {
-    const link = extractForwardConfirmationLink(email);
+    const links = extractForwardConfirmationLinks(email);
+    const link = links[0] ?? null;
     await db.insert(schema.preferences).values({
       userId: DEFAULT_USER_ID,
       kind: 'note',
       source: 'feedback',
-      text: `Gmail forwarding confirmation code: ${code}${link ? ` | verify link: ${link}` : ''}`,
+      text: `Gmail forwarding confirmation code: ${code}${links.length ? ` | links: ${links.slice(0, 5).join(' ')}` : ''}`,
     });
     await recordProcessedEmail(db, { messageId: email.messageId, source: 'other', subject: email.subject, receivedAt: email.date, status: 'ignored' });
     console.log(`[inbound] Gmail forwarding confirmation code received: ${code}${link ? ` link: ${link}` : ''}`);

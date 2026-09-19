@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { readRawMessage, parseInboundEmail, isSeekAlert, extractForwardConfirmationCode, extractForwardConfirmationLink, type InboundEmail } from './inbound';
+import { readRawMessage, parseInboundEmail, isSeekAlert, extractForwardConfirmationCode, extractForwardConfirmationLink, extractForwardConfirmationLinks, type InboundEmail } from './inbound';
 
 /** Hand-built MIME fixtures — CRLF line endings as the wire format uses. */
 function mime(lines: string[]): string {
@@ -160,5 +160,25 @@ describe('extractForwardConfirmationLink', () => {
   it('returns null for mail that is not a forwarding confirmation', async () => {
     const email = await parseInboundEmail(UNRELATED);
     expect(extractForwardConfirmationLink(email)).toBeNull();
+  });
+});
+
+describe('extractForwardConfirmationLinks', () => {
+  it('collects google.com links from HTML hrefs and bare text, verification-looking ones first', async () => {
+    const raw = mime([
+      'From: forwarding-noreply@google.com',
+      'To: jobs@applyforme.test',
+      'Subject: (Gmail Forwarding Confirmation - Receive Mail from sam@gmail.com',
+      'Message-ID: <fwd-confirm-2@google.com>',
+      'Content-Type: text/html; charset=utf-8',
+      '',
+      '<p>Confirmation code: 184973</p>',
+      '<p><a href="https://support.google.com/mail/answer/10957">Learn more</a></p>',
+      '<p><a href="https://mail.google.com/mail/vf-%5BANGjdJ8%5D-xyz?foo=1&amp;bar=2">Confirm</a></p>',
+    ]);
+    const email = await parseInboundEmail(raw);
+    const links = extractForwardConfirmationLinks(email);
+    expect(links[0]).toBe('https://mail.google.com/mail/vf-%5BANGjdJ8%5D-xyz?foo=1&bar=2');
+    expect(links.some((l) => l.includes('support.google.com'))).toBe(false);
   });
 });
