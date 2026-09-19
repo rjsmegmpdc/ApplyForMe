@@ -46,7 +46,7 @@ and `https://applyforme.onlinemyassistant.workers.dev`, cron `*/30 * * * *`, mig
 applied. Every request currently returns 401 because the Access vars are placeholders
 (step 8). Redeploy after any config change with `npm run deploy` from `apps/web`.
 
-## 5. Email — sending (Cloudflare Email Service)
+## 5. Email — sending (Cloudflare Email Service) — records published
 
 Dashboard → Email → **Email Service** → Sending → add `applyforme.dev`. Cloudflare adds the
 `cf-bounce` MX/SPF/DKIM/DMARC records itself because DNS is on Cloudflare. Wait for
@@ -54,7 +54,7 @@ Dashboard → Email → **Email Service** → Sending → add `applyforme.dev`. 
 
 Sanity check after deploy: the UI's Settings page has a "Send test email" button.
 
-## 6. Email — receiving (Email Routing → Worker)
+## 6. Email — receiving (Email Routing → Worker) — done, proven live
 
 Dashboard → Email → **Email Routing** on `applyforme.dev` → Get started → let it add MX/SPF.
 Then Routing rules → Create address:
@@ -62,7 +62,7 @@ Then Routing rules → Create address:
 - Custom address: `jobs`
 - Action: **Send to a Worker** → `applyforme`
 
-## 7. Gmail → jobs@applyforme.dev
+## 7. Gmail → jobs@applyforme.dev — done (address verified, Seek filter active)
 
 In the Gmail that receives the Seek alerts:
 
@@ -76,7 +76,7 @@ In the Gmail that receives the Seek alerts:
 
 Every matching alert now wakes the Worker within seconds.
 
-## 8. Cloudflare Access (login + sharing)
+## 8. Cloudflare Access (login + sharing) — done 2026-09-19
 
 Zero Trust → Access → Applications → Add → Self-hosted:
 
@@ -91,8 +91,10 @@ work without a login prompt on whatever device you open them on:
   (`lib/action-links.ts`); nothing else under `/api` is bypassed.
 - Copy the **Application Audience (AUD) tag** and your team domain
   (`<team>.cloudflareaccess.com`) into the `ACCESS_TEAM_DOMAIN` / `ACCESS_APP_AUD`
-  vars in `apps/web/wrangler.jsonc`, replacing the `pending…` placeholders, then
-  `npm run deploy` again.
+  vars in `apps/web/wrangler.jsonc`, then `npm run deploy` again. Two applications
+  exist: "ApplyForMe" (host, Allow policies — its AUD is the one in the config) and
+  "ApplyForMe action links" (path `api/runs/*/action`, Bypass — its AUD is unused).
+  Never put a Bypass policy on the host application: Bypass beats Allow.
 
 While the placeholders are in place every UI/API request returns 401 — the deployed app
 is never open in single-user mode. The email and cron handlers do not use identity, so
