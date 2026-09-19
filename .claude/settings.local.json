@@ -31,7 +31,8 @@
       "Bash(npm run deploy:*)",
       "Bash(npm run db:migrate:remote)",
       "Bash(npm run db:migrate:remote:*)",
-      "Bash(npm run build:worker:*)"
+      "Bash(npm run build:worker:*)",
+      "Bash(node /tmp/claude-0/-home-user-ApplyForMe/c4346a21-e422-54f2-98eb-b015a419b9e6/scratchpad/cf-access.mjs:*)"
     ]
   }
 }
