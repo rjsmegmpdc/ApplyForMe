@@ -125,6 +125,18 @@ async function findOrCreateUserByEmail(db: Db, email: string): Promise<number> {
   if (existing) return existing.id;
 
   const name = email.split('@')[0] || email;
+
+  // Single-user bootstrap: the pipeline writes everything against DEFAULT_USER_ID
+  // (seeded by migration 0001 with no email). The first identity to log in claims
+  // that row, so the profile/rules they set in the UI are the ones the pipeline
+  // uses. Later identities get their own rows as before.
+  const defaultRow = await db.query.users.findFirst({ where: eq(schema.users.id, DEFAULT_USER_ID) });
+  if (defaultRow && defaultRow.email == null) {
+    await db.update(schema.users).set({ email, name }).where(eq(schema.users.id, DEFAULT_USER_ID));
+    const claimed = await db.query.users.findFirst({ where: eq(schema.users.email, email) });
+    if (claimed) return claimed.id;
+  }
+
   await db.insert(schema.users).values({ name, email }).onConflictDoNothing({ target: schema.users.email });
 
   const row = await db.query.users.findFirst({ where: eq(schema.users.email, email) });

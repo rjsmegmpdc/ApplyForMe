@@ -219,3 +219,21 @@ describe('resolveUser — create-on-first-visit (empty user)', () => {
     expect(rows).toHaveLength(1);
   });
 });
+
+describe('first Access login claims the seeded default user row', () => {
+  it('maps the first verified email onto DEFAULT_USER_ID instead of creating a second user', async () => {
+    const { db } = createTestDb(); // migration 0001 seeds user 1 with no email
+    const jwt = await signJwt(keyPair.privateKey, KID, validPayload({ email: 'Matt@Example.com' }));
+    const result = await resolveUser(headersWith(jwt), db, ENV);
+    expect(result).toEqual({ userId: DEFAULT_USER_ID, email: 'matt@example.com' });
+    const rows = await db.query.users.findMany();
+    expect(rows).toHaveLength(1);
+    expect(rows[0].email).toBe('matt@example.com');
+
+    // A second, different identity gets its own row.
+    const jwt2 = await signJwt(keyPair.privateKey, KID, validPayload({ email: 'friend@example.com' }));
+    const second = await resolveUser(headersWith(jwt2), db, ENV);
+    expect('userId' in second && second.userId).not.toBe(DEFAULT_USER_ID);
+    expect(await db.query.users.findMany()).toHaveLength(2);
+  });
+});

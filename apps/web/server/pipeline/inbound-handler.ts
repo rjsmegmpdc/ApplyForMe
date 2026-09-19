@@ -24,7 +24,7 @@ import { DEFAULT_USER_ID } from '@/server/db/schema';
 import { extractForwardConfirmationCode, extractForwardConfirmationLink, isSeekAlert, parseInboundEmail, readRawMessage, type InboundEmail } from '@/server/email/inbound';
 import { resolveSendFn } from '@/server/email/send';
 import { resolveGenerateFn } from '@/server/ai/resolve-generate';
-import { findProcessedEmail, recordProcessedEmail } from '@/server/runs';
+import { ensureDefaultUser, findProcessedEmail, recordProcessedEmail } from '@/server/runs';
 import { processListing, type PipelineDeps, type ProcessResult } from './run-job';
 
 export const FETCH_TIMEOUT_MS = 10_000;
@@ -114,6 +114,7 @@ export async function processInboundEmail(raw: string, deps: PipelineDeps, waitU
   if (await findProcessedEmail(db, email.messageId)) {
     return { kind: 'duplicate', messageId: email.messageId };
   }
+  await ensureDefaultUser(db);
 
   const code = extractForwardConfirmationCode(email);
   if (code) {

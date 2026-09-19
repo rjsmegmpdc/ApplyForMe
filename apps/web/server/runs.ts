@@ -1,6 +1,7 @@
 import { and, asc, desc, eq } from 'drizzle-orm';
 import type { Db } from '@/server/db';
 import { schema } from '@/server/db';
+import { DEFAULT_USER_ID } from '@/server/db/schema';
 import type { FeedbackAction, NewRun, Preference, ProcessedEmail, Profile, Run, TriggerRulesRow } from '@/server/db/schema';
 
 /**
@@ -201,4 +202,17 @@ export async function listPreferences(db: Db, userId: number): Promise<Preferenc
     .from(schema.preferences)
     .where(eq(schema.preferences.userId, userId))
     .orderBy(asc(schema.preferences.createdAt), asc(schema.preferences.id));
+}
+
+/**
+ * Guarantee the default user row exists (DEFAULT_USER_ID). Migration 0001 seeds
+ * it, but the pipeline must never depend on that: an inbound email on a fresh
+ * database used to fail the users foreign key and bounce Gmail's own forwarding
+ * confirmation. Idempotent; safe to call on every inbound message.
+ */
+export async function ensureDefaultUser(db: Db): Promise<void> {
+  await db
+    .insert(schema.users)
+    .values({ id: DEFAULT_USER_ID, name: 'Default' })
+    .onConflictDoNothing({ target: schema.users.id });
 }
