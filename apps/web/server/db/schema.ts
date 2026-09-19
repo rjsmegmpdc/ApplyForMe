@@ -132,7 +132,7 @@ export const processedEmails = sqliteTable(
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
     messageId: text('message_id').notNull(),
-    source: text('source', { enum: ['seek', 'other'] }).notNull(),
+    source: text('source', { enum: ['seek', 'linkedin', 'other'] }).notNull(),
     subject: text('subject'),
     /** The message's own Date header (ISO string) — null when absent/unparseable. */
     receivedAt: text('received_at'),

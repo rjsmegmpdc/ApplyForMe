@@ -1,7 +1,7 @@
 /**
  * The review email — what lands in the user's inbox for each tailored job.
  * A compact card: score first (so the inbox sorts by eye), title / company /
- * location / salary, the big "Apply on Seek" button, the matched
+ * location / salary, the big "Apply on Seek/LinkedIn" button, the matched
  * requirements with a line or two of evidence each, missing skills, the
  * tailored summary, a provenance note (live / repaired / FALLBACK), the
  * four signed one-click action buttons, and a link to the run in the app.
@@ -11,6 +11,7 @@
  * both light and dark mail clients. A plain-text twin carries the same
  * content for clients that strip HTML. Pure: builds strings from inputs.
  */
+import { jobSourceOfUrl, sourceLabel } from '@applyforme/engine';
 import type { AnalysisResult, TailoredOutput, TriggerDecision } from '@applyforme/engine';
 import type { Run } from '@/server/db/schema';
 
@@ -122,7 +123,8 @@ export function buildReviewEmail(input: ReviewEmailInput): ReviewEmail {
   h.push(`<div style="font-size:34px;font-weight:700;color:#1B365D;line-height:1">${escapeHtml(score)}<span style="font-size:14px;font-weight:400;color:#666666;margin-left:8px">match</span></div>`);
   h.push(`<div style="font-size:20px;font-weight:700;color:#1B365D;margin-top:8px">${escapeHtml(run.jobTitle)}</div>`);
   if (metaLine.length > 0) h.push(`<div style="color:#444444;margin-top:2px">${escapeHtml(metaLine.join(' · '))}</div>`);
-  h.push(`<div style="margin-top:14px">${btn(input.jobUrl, 'Apply on Seek', '#0d3880')}</div>`);
+  const applyLabel = `Apply on ${sourceLabel(jobSourceOfUrl(input.jobUrl))}`;
+  h.push(`<div style="margin-top:14px">${btn(input.jobUrl, applyLabel, '#0d3880')}</div>`);
   h.push('</div>');
 
   if (origin.warn) {
@@ -181,7 +183,7 @@ export function buildReviewEmail(input: ReviewEmailInput): ReviewEmail {
   t.push(`${score} match — ${run.jobTitle}`);
   if (metaLine.length > 0) t.push(metaLine.join(' · '));
   t.push('');
-  t.push(`Apply on Seek: ${input.jobUrl}`);
+  t.push(`Apply on ${sourceLabel(jobSourceOfUrl(input.jobUrl))}: ${input.jobUrl}`);
   t.push('');
   if (origin.warn) {
     t.push(`*** ${origin.label} ***`);

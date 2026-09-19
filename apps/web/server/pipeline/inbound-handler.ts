@@ -18,10 +18,10 @@
  * Multi-user routing (map the recipient address — e.g. jobs+matt@… — to a
  * users row) is a later step; the `to` address is already parsed.
  */
-import { parseSeekAlert, type JobListing } from '@applyforme/engine';
+import { parseJobAlert, type JobListing, type JobSource } from '@applyforme/engine';
 import { dbFromEnv, schema } from '@/server/db';
 import { DEFAULT_USER_ID } from '@/server/db/schema';
-import { extractForwardConfirmationCode, extractForwardConfirmationLinks, isSeekAlert, parseInboundEmail, readRawMessage, type InboundEmail } from '@/server/email/inbound';
+import { detectAlertSource, extractForwardConfirmationCode, extractForwardConfirmationLinks, parseInboundEmail, readRawMessage, type InboundEmail } from '@/server/email/inbound';
 import { resolveSendFn } from '@/server/email/send';
 import { resolveGenerateFn } from '@/server/ai/resolve-generate';
 import { ensureDefaultUser, findProcessedEmail, recordProcessedEmail } from '@/server/runs';
@@ -73,7 +73,7 @@ export type InboundOutcome =
   | { kind: 'processed'; processedEmailId: number; jobs: number };
 
 /** Run every listing in order; a throw in one listing never stops the others. Marks the ledger row 'failed' if any listing threw. */
-export async function processListings(deps: PipelineDeps, email: InboundEmail, processedEmailId: number, listings: JobListing[]): Promise<ProcessResult[]> {
+export async function processListings(deps: PipelineDeps, email: InboundEmail, source: JobSource, processedEmailId: number, listings: JobListing[]): Promise<ProcessResult[]> {
   const results: ProcessResult[] = [];
   const errors: string[] = [];
   for (const listing of listings) {
@@ -88,7 +88,7 @@ export async function processListings(deps: PipelineDeps, email: InboundEmail, p
   if (errors.length > 0) {
     await recordProcessedEmail(deps.db, {
       messageId: email.messageId,
-      source: 'seek',
+      source,
       subject: email.subject,
       receivedAt: email.date,
       jobsFound: listings.length,
@@ -131,22 +131,26 @@ export async function processInboundEmail(raw: string, deps: PipelineDeps, waitU
     return { kind: 'forward-confirmation', code };
   }
 
-  if (!isSeekAlert(email)) {
+  const source = detectAlertSource(email);
+  if (!source) {
     await recordProcessedEmail(db, { messageId: email.messageId, source: 'other', subject: email.subject, receivedAt: email.date, status: 'ignored' });
+    // Logged (not stored) so an unrecognised alert format can be diagnosed from Workers Logs.
+    const links = [...`${email.text ?? ''}\n${email.html ?? ''}`.matchAll(/https?:\/\/[^\s"'<>)\]]+/gi)].map((m) => m[0]).slice(0, 25);
+    console.log(`[inbound] ignored subject=${JSON.stringify(email.subject)} from=${email.from} links=${JSON.stringify(links)}`);
     return { kind: 'ignored', messageId: email.messageId };
   }
 
-  const listings = parseSeekAlert(email.html ?? email.text ?? '');
+  const listings = parseJobAlert(source, email.html ?? email.text ?? '', email.subject);
   const ledger = await recordProcessedEmail(db, {
     messageId: email.messageId,
-    source: 'seek',
+    source,
     subject: email.subject,
     receivedAt: email.date,
     jobsFound: listings.length,
     status: 'processed',
   });
 
-  waitUntil(processListings(deps, email, ledger.id, listings));
+  waitUntil(processListings(deps, email, source, ledger.id, listings));
   return { kind: 'processed', processedEmailId: ledger.id, jobs: listings.length };
 }
 

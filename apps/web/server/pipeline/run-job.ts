@@ -26,7 +26,7 @@ import {
   evaluateTrigger,
   extractJobAdMeta,
   extractJobAdText,
-  extractSeekJobId,
+  listingKey,
   type AnalysisResult,
   type JobListing,
   type TailoredOutput,
@@ -278,7 +278,7 @@ export async function processListing(
   const { userId, processedEmailId, listing } = opts;
 
   // 1. Dedupe.
-  const seekJobId = extractSeekJobId(listing.url) ?? fallbackJobId(listing);
+  const seekJobId = listingKey(listing) ?? fallbackJobId(listing);
   const existing = await findRunBySeekJobId(db, userId, seekJobId);
   if (existing) {
     if (existing.status === 'regenerate') return processRegenerate(deps, existing.id);

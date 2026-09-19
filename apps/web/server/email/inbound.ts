@@ -1,3 +1,4 @@
+import { detectJobSource, type JobSource } from '@applyforme/engine';
 import PostalMime, { type Address } from 'postal-mime';
 
 /**
@@ -79,6 +80,11 @@ const SEEK_JOB_LINK = /https?:\/\/(?:[a-z0-9-]+\.)*seek\.co\.nz\/job\//i;
  * path recognises a forwarded alert by its content: a mention of Seek plus
  * at least one seek.co.nz/job link in the body.
  */
+/** Which job board this email is an alert from (Seek or LinkedIn), or null when it is not a job alert. */
+export function detectAlertSource(email: InboundEmail): JobSource | null {
+  return detectJobSource({ from: email.from, subject: email.subject, body: `${email.text ?? ''}\n${email.html ?? ''}` });
+}
+
 export function isSeekAlert(email: InboundEmail): boolean {
   if (/seek\.co\.nz/i.test(email.from)) return true;
   const body = `${email.text ?? ''}\n${email.html ?? ''}`;

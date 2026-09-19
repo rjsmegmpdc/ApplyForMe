@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { SEEK_ALERT_HTML, SEEK_ALERT_JOB_IDS } from '../../../../packages/engine/src/__fixtures__/seek-alert';
+import { LINKEDIN_ALERT_HTML } from '../../../../packages/engine/src/__fixtures__/linkedin-alert';
 import { DEFAULT_TRIGGER_RULES } from '@applyforme/engine';
 import { eq } from 'drizzle-orm';
 import { schema } from '@/server/db';
@@ -167,5 +168,31 @@ describe('processInboundEmail', () => {
     expect(runs.find((r) => r.status === 'failed')!.error).toBe('mailer hiccup');
     expect(sent).toHaveLength(2);
     expect((await findProcessedEmail(db, 'alert-1@seek.co.nz'))!.status).toBe('processed');
+  });
+});
+
+describe('LinkedIn alerts', () => {
+  it('a forwarded LinkedIn alert is recognised, recorded with source linkedin, and creates one run per job', async () => {
+    const db = await setupDb();
+    const { deps, sent } = fakeDeps({ db, generate: scriptedGenerate([VALID_OUTPUT, VALID_OUTPUT]).generate });
+    const { waitUntil, settle } = collector();
+    const raw = mime([
+      'From: Matt <smharkness.nz@gmail.com>',
+      'To: jobs@applyforme.test',
+      'Subject: Fwd: Head of Technology Architecture at Auckland Council',
+      'Message-ID: <li-fwd-1@mail.gmail.com>',
+      'Content-Type: text/html; charset=utf-8',
+      '',
+      LINKEDIN_ALERT_HTML,
+    ]);
+    const outcome = await processInboundEmail(raw, deps, waitUntil);
+    await settle();
+    expect(outcome).toMatchObject({ kind: 'processed', jobs: 2 });
+    expect((await findProcessedEmail(db, 'li-fwd-1@mail.gmail.com'))?.source).toBe('linkedin');
+    const runs = await db.query.runs.findMany();
+    expect(runs.map((r) => r.seekJobId).sort()).toEqual(['linkedin:4123456789', 'linkedin:4987654321']);
+    expect(runs.every((r) => r.jobUrl?.startsWith('https://www.linkedin.com/jobs/view/'))).toBe(true);
+    expect(sent.length).toBeGreaterThan(0);
+    expect(sent[0].text).toMatch(/Apply on LinkedIn/);
   });
 });

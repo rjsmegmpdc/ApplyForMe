@@ -1,3 +1,4 @@
+import { jobSourceOfUrl, sourceLabel } from '@applyforme/engine';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getDb } from '@/server/db';
@@ -46,7 +47,7 @@ export default async function RunDetailPage({ params }: { params: Promise<{ id: 
     ['Created', formatNzFull(run.createdAt)],
     ['Updated', formatNzFull(run.updatedAt)],
     ['Job text', run.jobTextSource === 'full-ad' ? 'full ad' : 'alert snippet'],
-    ['Seek job', run.seekJobId],
+    ['Job key', run.seekJobId],
   ];
 
   return (
@@ -76,7 +77,7 @@ export default async function RunDetailPage({ params }: { params: Promise<{ id: 
         </dl>
         <p className={styles.links}>
           <a href={run.jobUrl} target="_blank" rel="noopener noreferrer" className={styles.apply}>
-            Apply on Seek ↗
+            Apply on {sourceLabel(jobSourceOfUrl(run.jobUrl ?? ''))} ↗
           </a>
           <span className={styles.muted}>{hostOf(run.jobUrl)}</span>
         </p>

@@ -14,3 +14,5 @@ export * from './parse/html-text';
 export * from './parse/seek-email';
 export * from './parse/seek-page';
 export * from './salary/salary-data';
+export * from './parse/linkedin-email';
+export * from './parse/job-source';
