@@ -8,8 +8,8 @@
 
 /** Cloudflare Email Service send binding (public beta). Shape per the Workers API docs. */
 interface EmailSendAttachment {
-  /** Base64-encoded file content. */
-  content: string;
+  /** File BYTES. A string is sent as literal (text) content, not decoded from base64. */
+  content: string | ArrayBuffer | ArrayBufferView;
   filename: string;
   /** MIME type, e.g. application/vnd.openxmlformats-officedocument.wordprocessingml.document */
   type: string;

@@ -250,13 +250,7 @@ export async function docxToBase64(doc: Document): Promise<string> {
   return Packer.toBase64String(doc);
 }
 
-/** Base64 → bytes (atob is available in both workerd and Node 22). */
-export function base64ToBytes(base64: string): Uint8Array {
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes;
-}
+export { base64ToBytes } from '@/lib/base64';
 
 function slug(s: string, fallback: string): string {
   const cleaned = s

@@ -40,8 +40,8 @@ describe('makeCloudflareSendFn', () => {
     expect(sent[0].text).toBe('Hi');
     expect(sent[0].replyTo).toBe('jobs@applyforme.test');
     expect(sent[0].attachments).toEqual([
-      { filename: 'CV.docx', type: PACK.attachments![0].contentType, content: 'QUJD', disposition: 'attachment' },
-      { filename: 'Cover Letter.docx', type: PACK.attachments![1].contentType, content: 'REVG', disposition: 'attachment' },
+      { filename: 'CV.docx', type: PACK.attachments![0].contentType, content: new Uint8Array([65, 66, 67]), disposition: 'attachment' },
+      { filename: 'Cover Letter.docx', type: PACK.attachments![1].contentType, content: new Uint8Array([68, 69, 70]), disposition: 'attachment' },
     ]);
   });
 

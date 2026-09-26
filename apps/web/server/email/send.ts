@@ -9,6 +9,8 @@
  * are deterministic.
  */
 
+import { base64ToBytes } from '@/lib/base64';
+
 export interface OutboundAttachment {
   filename: string;
   /** MIME type, e.g. application/vnd.openxmlformats-officedocument.wordprocessingml.document */
@@ -32,6 +34,11 @@ export type SendFn = (email: OutboundEmail) => Promise<{ messageId: string }>;
  * Cloudflare Email Service transport. `from` comes from the EMAIL_FROM /
  * EMAIL_FROM_NAME vars (wrangler.jsonc) — the address must be on a domain
  * verified in the Email Service dashboard or the send is rejected.
+ *
+ * Attachment `content` must be the file BYTES (ArrayBufferView). The binding
+ * treats a string as literal text content, not base64 — passing base64 there
+ * produced .docx attachments that were the base64 text itself ("corrupt" in
+ * Word). Hence the decode here.
  */
 export function makeCloudflareSendFn(env: Pick<CloudflareEnv, 'EMAIL' | 'EMAIL_FROM' | 'EMAIL_FROM_NAME'>): SendFn {
   return async (email) => {
@@ -45,7 +52,7 @@ export function makeCloudflareSendFn(env: Pick<CloudflareEnv, 'EMAIL' | 'EMAIL_F
       attachments: email.attachments?.map((a) => ({
         filename: a.filename,
         type: a.contentType,
-        content: a.base64,
+        content: base64ToBytes(a.base64),
         disposition: 'attachment' as const,
       })),
     });
