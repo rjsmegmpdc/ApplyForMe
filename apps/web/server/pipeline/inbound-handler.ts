@@ -18,7 +18,7 @@
  * Multi-user routing (map the recipient address — e.g. jobs+matt@… — to a
  * users row) is a later step; the `to` address is already parsed.
  */
-import { parseJobAlert, type JobListing, type JobSource } from '@applyforme/engine';
+import { extractLinkedInJobId, parseJobAlert, type JobListing, type JobSource } from '@applyforme/engine';
 import { dbFromEnv, schema } from '@/server/db';
 import { DEFAULT_USER_ID } from '@/server/db/schema';
 import { detectAlertSource, extractForwardConfirmationCode, extractForwardConfirmationLinks, parseInboundEmail, readRawMessage, type InboundEmail } from '@/server/email/inbound';
@@ -30,8 +30,37 @@ import { processListing, type PipelineDeps, type ProcessResult } from './run-job
 export const FETCH_TIMEOUT_MS = 10_000;
 const DESKTOP_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
 
-/** Fetch a job page like a desktop browser; null on non-2xx, timeout or network error (the pipeline then uses the alert snippet). */
+/**
+ * Fetch a job page like a desktop browser; null on non-2xx, timeout, network
+ * error, or a page with no usable job content (the pipeline then uses the
+ * alert snippet). LinkedIn serves logged-out visitors an "authwall" for
+ * /jobs/view/, but its guest job-posting endpoint usually returns the job
+ * card HTML (with the description) without a session — so for LinkedIn URLs
+ * that endpoint is tried first. Outcomes are logged for diagnosis.
+ */
 export async function fetchJobPage(url: string): Promise<string | null> {
+  const liId = extractLinkedInJobId(url);
+  const candidates = liId
+    ? [`https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/${liId}`, `https://www.linkedin.com/jobs/view/${liId}/`, url]
+    : [url];
+  for (const candidate of [...new Set(candidates)]) {
+    const html = await fetchOnce(candidate);
+    if (html && looksLikeJobContent(html)) {
+      console.log(`[fetch] ok ${candidate} bytes=${html.length}`);
+      return html;
+    }
+  }
+  return null;
+}
+
+/** Cheap check that a fetched page is a job ad rather than a login/consent/error shell. */
+export function looksLikeJobContent(html: string): boolean {
+  if (html.length < 800) return false;
+  if (/authwall|sign in to view|join now to see|checkpoint\/challenge|captcha/i.test(html) && !/jobAdDetails|description__text|JobPosting/i.test(html)) return false;
+  return /JobPosting|jobAdDetails|description__text|show-more-less-html|job-details|jobDescription|<h1/i.test(html);
+}
+
+async function fetchOnce(url: string): Promise<string | null> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
@@ -44,9 +73,12 @@ export async function fetchJobPage(url: string): Promise<string | null> {
       redirect: 'follow',
       signal: controller.signal,
     });
+    const text = await res.text();
+    console.log(`[fetch] ${res.status} ${url} -> ${res.url} bytes=${text.length}`);
     if (!res.ok) return null;
-    return await res.text();
-  } catch {
+    return text;
+  } catch (e) {
+    console.log(`[fetch] error ${url}: ${e instanceof Error ? e.message : String(e)}`);
     return null;
   } finally {
     clearTimeout(timer);
@@ -157,6 +189,12 @@ export async function processInboundEmail(raw: string, deps: PipelineDeps, waitU
 /** Worker entry (worker.ts `email`). */
 export async function handleInboundEmail(message: ForwardableEmailMessage, env: CloudflareEnv, ctx: ExecutionContext): Promise<void> {
   const raw = await readRawMessage(message);
+  // Keep the raw message (30-day housekeeping is manual for now) so an alert
+  // the parser mishandled can be replayed and the parser fixed against it.
+  if (env.DOCS) {
+    const key = `inbound/${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.eml`;
+    ctx.waitUntil(env.DOCS.put(key, raw, { httpMetadata: { contentType: 'message/rfc822' } }).then(() => console.log(`[inbound] archived ${key} bytes=${raw.length}`)).catch((e) => console.log(`[inbound] archive failed: ${e}`)));
+  }
   const outcome = await processInboundEmail(raw, buildPipelineDeps(env), (work) => ctx.waitUntil(work));
   console.log(`[inbound] ${outcome.kind}${outcome.kind === 'processed' ? ` jobs=${outcome.jobs}` : ''}`);
 }
