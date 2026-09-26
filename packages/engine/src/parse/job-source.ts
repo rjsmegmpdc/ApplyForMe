@@ -8,7 +8,7 @@ import { extractSeekJobId, parseSeekAlert } from './seek-email';
 
 export type JobSource = 'seek' | 'linkedin';
 
-const SEEK_LINK_RE = /https?:\/\/(?:www\.)?seek\.co\.nz\/job\/\d+/i;
+const SEEK_LINK_RE = /https?:\/\/(?:[a-z0-9-]+\.)*seek\.co\.nz\//i;
 const LINKEDIN_LINK_RE = /https?:\/\/(?:[a-z0-9-]+\.)?linkedin\.com\/(?:comm\/)?jobs\/view\//i;
 
 /** Detect the source of an alert from sender, subject and body. Null when it is not a job alert we understand. */

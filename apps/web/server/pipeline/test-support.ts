@@ -120,6 +120,7 @@ export interface FakeDepsOptions {
   env?: CloudflareEnv;
   generate?: GenerateFn | null;
   fetchPage?: PipelineDeps['fetchPage'];
+  resolveRedirect?: PipelineDeps['resolveRedirect'];
   now?: number;
 }
 
@@ -131,6 +132,7 @@ export function fakeDeps(opts: FakeDepsOptions): { deps: PipelineDeps; sent: Out
     env: opts.env ?? fakeEnv(),
     send,
     fetchPage: opts.fetchPage ?? (async () => null),
+    resolveRedirect: opts.resolveRedirect ?? (async () => null),
     generateFor: async (userId) => {
       generateForCalls.push(userId);
       const generate = opts.generate === undefined ? null : opts.generate;

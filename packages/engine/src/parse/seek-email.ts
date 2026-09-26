@@ -181,6 +181,57 @@ function findJobAnchors(html: string): JobAnchor[] {
   return anchors;
 }
 
+const TRACKED_SEEK_LINK_RE = /https?:\/\/(?:[a-z0-9-]+\.)*seek\.co\.nz\/[^\s"'<>]+/i;
+/** Seek card salary lines often carry no figure: "Competitive market", "Great competitive hourly rate", "Yearly". */
+const SALARY_HINT_RE = /\b(?:competitive|salary|package|remuneration|rate|yearly|hourly|per\s+(?:hour|annum|year|day)|kiwisaver|benefits|\$|k\b)/i;
+const FIT_BADGE_RE = /^(?:very\s+)?strong\s+applicant$|^(?:good|great)\s+match$|^new$|^featured$|^recently\s+posted$|^posted\b.*$|^\d+\s*(?:m|h|d|w)\s+ago$|^(?:today|yesterday)$/i;
+
+/** Does this URL point at Seek at all (job page or tracked redirect)? */
+export function isSeekLink(url: string): boolean {
+  return TRACKED_SEEK_LINK_RE.test(decodeEntities(url));
+}
+
+/**
+ * Seek's current recommendation emails ("<Title> [Strong applicant] + 11 new
+ * jobs") wrap each job card in ONE tracked anchor
+ * (https://email.s.seek.co.nz/uni/ss/c/…) whose text is the whole card:
+ *
+ *   Title / Company / [Strong applicant] / Location / [Salary] / • bullets / [Recently posted]
+ *
+ * The job id is not in the link — it appears only after the redirect, which
+ * the pipeline resolves. Returns one listing per card with the tracked URL.
+ */
+function parseCardAnchors(rawHtml: string): JobListing[] {
+  const jobs: JobListing[] = [];
+  // Outlook conditional comments carry their own <a>…</a> inside the card
+  // anchor; the closing tag inside the comment would end the match early.
+  const html = rawHtml.replace(/<!--[\s\S]*?-->/g, '');
+  for (const m of html.matchAll(ANCHOR_RE)) {
+    const href = decodeEntities(m[2]);
+    if (!TRACKED_SEEK_LINK_RE.test(href) || /\.(?:png|gif|jpe?g|css)(?:\?|$)/i.test(href)) continue;
+    const lines = htmlToText(m[3]).split('\n').map((l) => collapseWhitespace(l)).filter(Boolean)
+      .filter((l) => !/^logo$/i.test(l) && !URL_ONLY_RE.test(l));
+    if (lines.length < 3) continue; // a plain "View more jobs" link, not a card
+    const title = stripLeadingBullet(lines[0]);
+    if (isBoilerplateLine(title) || title.length < 4 || title.length > 120) continue;
+    let company = '';
+    let location = '';
+    let salary = '';
+    const bullets: string[] = [];
+    for (const raw of lines.slice(1)) {
+      const line = stripLeadingBullet(raw);
+      if (FIT_BADGE_RE.test(line) || ACTION_LINE_RE.test(line) || isBoilerplateLine(line)) continue;
+      if (!company) { company = line; continue; }
+      if (!location && isLocationLine(line)) { location = line; continue; }
+      if (!salary && bullets.length === 0 && line.length <= 60 && (isSalaryLine(line) || SALARY_HINT_RE.test(line))) { salary = line; continue; }
+      bullets.push(line);
+    }
+    if (!company || (!location && bullets.length === 0)) continue; // header/footer links, not a job card
+    jobs.push({ title, company, location, salary, description: bullets.join('\n').slice(0, 2000), url: href });
+  }
+  return jobs;
+}
+
 function parseHtmlAlert(html: string): JobListing[] {
   const anchors = findJobAnchors(html);
   if (anchors.length === 0) return [];
@@ -355,6 +406,46 @@ function parseLegacy(text: string): JobListing[] {
   return jobs;
 }
 
+/**
+ * Plain-text twin of parseCardAnchors: each card ends with its tracked URL on
+ * its own line (often wrapped in [brackets]); the lines above, back to the
+ * previous "logo"/URL line, are the card.
+ */
+function parseTrackedTextAlert(text: string): JobListing[] {
+  const lines = text.split('\n').map((l) => l.trim());
+  const jobs: JobListing[] = [];
+  let block: string[] = [];
+  for (const raw of lines) {
+    const line = raw.replace(/^\[|\]$/g, '');
+    const m = line.match(TRACKED_SEEK_LINK_RE);
+    if (m && URL_ONLY_RE.test(line)) {
+      const content = block.filter((l) => l && !/^logo$/i.test(l) && !URL_ONLY_RE.test(l) && !isBoilerplateLine(l) && !/^%%/.test(l));
+      block = [];
+      if (content.length < 3) continue;
+      const title = stripLeadingBullet(content[0]);
+      let company = '';
+      let location = '';
+      let salary = '';
+      const bullets: string[] = [];
+      for (const raw2 of content.slice(1)) {
+        const l = stripLeadingBullet(raw2);
+        if (FIT_BADGE_RE.test(l) || ACTION_LINE_RE.test(l)) continue;
+        if (!company) { company = l; continue; }
+        if (!location && isLocationLine(l)) { location = l; continue; }
+        if (!salary && bullets.length === 0 && l.length <= 60 && !/^[*•\-]\s/.test(raw2) && (isSalaryLine(l) || SALARY_HINT_RE.test(l))) { salary = l; continue; }
+        bullets.push(l);
+      }
+      const hasBullets = content.some((l) => /^[*•\-]\s/.test(l));
+      if (company && (location || hasBullets)) {
+        jobs.push({ title, company, location, salary, description: bullets.join('\n').slice(0, 2000), url: m[0] });
+      }
+      continue;
+    }
+    block.push(line);
+  }
+  return jobs;
+}
+
 // ---------------------------------------------------------------------------
 // Entry point
 // ---------------------------------------------------------------------------
@@ -369,6 +460,14 @@ export function parseSeekAlert(emailHtmlOrText: string): JobListing[] {
 
   const isHtml = looksLikeHtml(emailHtmlOrText);
   let jobs = isHtml ? parseHtmlAlert(emailHtmlOrText) : parseTextAlert(emailHtmlOrText);
+
+  if (jobs.length === 0 && isHtml) {
+    // Recommendation emails: whole-card tracked anchors, no job ids in links.
+    jobs = parseCardAnchors(emailHtmlOrText);
+  }
+  if (jobs.length === 0 && !isHtml) {
+    jobs = parseTrackedTextAlert(emailHtmlOrText);
+  }
 
   if (jobs.length === 0 && isHtml) {
     // HTML with no anchors (some clients flatten links): treat as text.

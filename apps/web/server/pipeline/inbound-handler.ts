@@ -85,6 +85,35 @@ async function fetchOnce(url: string): Promise<string | null> {
   }
 }
 
+/**
+ * Follow redirects manually (max 6 hops) and return the final URL without
+ * downloading the destination body — Seek's tracked links 302 to the job page.
+ */
+export async function resolveRedirectUrl(url: string): Promise<string | null> {
+  let current = url;
+  for (let hop = 0; hop < 6; hop++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    try {
+      const res = await fetch(current, { method: 'GET', redirect: 'manual', headers: { 'User-Agent': DESKTOP_UA }, signal: controller.signal });
+      const loc = res.headers.get('location');
+      if (res.status >= 300 && res.status < 400 && loc) {
+        current = new URL(loc, current).toString();
+        continue;
+      }
+      console.log(`[resolve] ${url} -> ${current} (${res.status})`);
+      return current;
+    } catch (e) {
+      console.log(`[resolve] error ${current}: ${e instanceof Error ? e.message : String(e)}`);
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  console.log(`[resolve] too many redirects for ${url}`);
+  return current;
+}
+
 /** Real dependencies from the Worker env — the only place the pipeline touches bindings directly. */
 export function buildPipelineDeps(env: CloudflareEnv): PipelineDeps {
   const db = dbFromEnv(env);
@@ -93,6 +122,7 @@ export function buildPipelineDeps(env: CloudflareEnv): PipelineDeps {
     env,
     send: resolveSendFn(env),
     fetchPage: fetchJobPage,
+    resolveRedirect: resolveRedirectUrl,
     generateFor: (userId) => resolveGenerateFn(db, env, userId),
     now: Date.now,
   };

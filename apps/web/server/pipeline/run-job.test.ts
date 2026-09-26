@@ -326,3 +326,27 @@ describe('processRegenerate', () => {
     expect(await processRegenerate(deps, 999)).toMatchObject({ runId: 999, status: 'failed' });
   });
 });
+
+describe('Seek tracked links', () => {
+  it('resolves the tracking redirect to the canonical job URL before dedupe and fetch', async () => {
+    const db = await setupDb();
+    const fetched: string[] = [];
+    const { deps } = fakeDeps({
+      db,
+      generate: scriptedGenerate([VALID_OUTPUT]).generate,
+      resolveRedirect: async (url) => (url.includes('email.s.seek.co.nz') ? 'https://www.seek.co.nz/job/87654321?type=standout&ref=email' : null),
+      fetchPage: async (url) => { fetched.push(url); return null; },
+    });
+    const listing = { title: 'Head of Technology Engineering', company: 'Auckland Council', location: 'Auckland CBD, Auckland', salary: '', description: 'Lead enterprise engineering across cloud, infrastructure and DevOps. M365, Azure, governance, security.', url: 'https://email.s.seek.co.nz/uni/ss/c/u001.TRACK001/h001.x' };
+    const result = await processListing(deps, { userId: USER, processedEmailId: null, listing });
+    const run = await db.query.runs.findFirst();
+    expect(run?.seekJobId).toBe('87654321');
+    expect(run?.jobUrl).toBe('https://www.seek.co.nz/job/87654321');
+    expect(fetched[0]).toBe('https://www.seek.co.nz/job/87654321');
+    expect(['sent', 'skipped']).toContain(result.status);
+
+    // Same tracked link again (a re-sent alert) dedupes on the resolved id.
+    const again = await processListing(deps, { userId: USER, processedEmailId: null, listing });
+    expect(again).toMatchObject({ status: 'skipped', reason: 'duplicate' });
+  });
+});

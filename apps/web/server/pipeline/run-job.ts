@@ -27,6 +27,8 @@ import {
   extractJobAdMeta,
   extractJobAdText,
   listingKey,
+  isSeekLink,
+  canonicalSeekUrl,
   type AnalysisResult,
   type JobListing,
   type TailoredOutput,
@@ -51,6 +53,8 @@ export interface PipelineDeps {
   send: SendFn;
   /** Full HTML of a job page, or null when it cannot be fetched (non-2xx, timeout, network error). */
   fetchPage: (url: string) => Promise<string | null>;
+  /** Follow a tracked/redirect link to its final URL (null on failure). Used for Seek alert links, which carry no job id. */
+  resolveRedirect: (url: string) => Promise<string | null>;
   /** Model resolution per user (server/ai/resolve-generate.ts); `generate` null means deterministic-only. */
   generateFor: (userId: number) => Promise<{ generate: GenerateFn | null; provider: string }>;
   /** Milliseconds since epoch — injected so tests pin the date. */
@@ -276,9 +280,18 @@ export async function processListing(
   opts: { userId: number; processedEmailId: number | null; listing: JobListing }
 ): Promise<ProcessResult> {
   const { db } = deps;
-  const { userId, processedEmailId, listing } = opts;
+  const { userId, processedEmailId } = opts;
+  let listing = opts.listing;
 
   // 1. Dedupe.
+  // Seek recommendation emails link through email.s.seek.co.nz tracking
+  // redirects; resolve to the canonical job URL first so dedupe keys and the
+  // page fetch use the real job id.
+  if (!listingKey(listing) && listing.url && isSeekLink(listing.url)) {
+    const resolved = await deps.resolveRedirect(listing.url);
+    const canonical = resolved ? canonicalSeekUrl(resolved) : null;
+    if (canonical) listing = { ...listing, url: canonical };
+  }
   const seekJobId = listingKey(listing) ?? fallbackJobId(listing);
   const existing = await findRunBySeekJobId(db, userId, seekJobId);
   if (existing) {
