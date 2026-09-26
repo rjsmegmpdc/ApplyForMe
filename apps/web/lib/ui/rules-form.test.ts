@@ -37,6 +37,7 @@ describe('form ↔ TriggerRules round trip', () => {
     keywordsAny: ['Product Manager', 'Modern Workplace'],
     keywordsAll: ['M365'],
     preferredCompanies: ['One NZ'],
+    preferredTitles: ['head of'],
     excludedCompanies: ['Acme'],
     excludedTerms: ['graduate', 'intern'],
     locations: ['Auckland', 'Remote'],
@@ -58,6 +59,7 @@ describe('form ↔ TriggerRules round trip', () => {
     const out = formToRules({
       keywordsAny: 'pm,\n product owner ,pm',
       keywordsAll: '',
+      preferredTitles: ' Head Of , director',
       preferredCompanies: '',
       excludedCompanies: '',
       excludedTerms: 'junior',

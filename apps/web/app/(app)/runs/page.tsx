@@ -4,6 +4,7 @@ import { listRuns } from '@/server/runs';
 import { pageIdentity } from '@/lib/ui/session';
 import { formatNz, ORIGIN_TONE, STATUS_TONE } from '@/lib/ui/format';
 import { Badge } from '@/components/ui/badge';
+import { RunUrlForm } from '@/components/runs/run-url-form';
 import { Note, PageTitle, Section, SessionExpired } from '@/components/ui/section';
 import styles from './runs.module.css';
 
@@ -20,6 +21,10 @@ export default async function RunsPage() {
   return (
     <>
       <PageTitle aside={`${runs.length} run${runs.length === 1 ? '' : 's'} · times in Pacific/Auckland`}>Runs</PageTitle>
+
+      <Section label="Analyse a job link">
+        <RunUrlForm />
+      </Section>
 
       {runs.length === 0 ? (
         <Section label="Nothing yet">

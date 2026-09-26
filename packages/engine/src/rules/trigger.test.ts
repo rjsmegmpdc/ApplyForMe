@@ -213,3 +213,22 @@ describe('evaluateTrigger', () => {
     expect(evaluateTrigger(baseInput, r)).toEqual(evaluateTrigger(baseInput, r));
   });
 });
+
+describe('preferred titles', () => {
+  const base = { company: 'Acme', location: 'Auckland', salary: '', text: 'Nothing relevant here.', matchPercentage: 12 };
+  it('a head-of title processes even below the match threshold and with no keyword hits', () => {
+    const d = evaluateTrigger({ ...base, title: 'Head of Technology Architecture' }, { ...DEFAULT_TRIGGER_RULES, keywordsAny: ['copilot'] });
+    expect(d.decision).toBe('process');
+    expect(d.preferredTitle).toBe('head of');
+    expect(d.reasons.join(' ')).toMatch(/preferred title/);
+  });
+  it('exclusions still beat a preferred title', () => {
+    const d = evaluateTrigger({ ...base, title: 'Head of Graduate Programmes' }, DEFAULT_TRIGGER_RULES);
+    expect(d.decision).toBe('skip');
+  });
+  it('a non-matching title falls through to the normal checks', () => {
+    const d = evaluateTrigger({ ...base, title: 'Service Desk Analyst' }, DEFAULT_TRIGGER_RULES);
+    expect(d.decision).toBe('skip');
+    expect(d.preferredTitle).toBeNull();
+  });
+});

@@ -14,6 +14,7 @@ export interface RulesForm {
   keywordsAny: string;
   keywordsAll: string;
   preferredCompanies: string;
+  preferredTitles: string;
   excludedCompanies: string;
   excludedTerms: string;
   locations: string;
@@ -58,6 +59,7 @@ export function rulesToForm(rules: TriggerRules): RulesForm {
     keywordsAny: joinList(rules.keywordsAny),
     keywordsAll: joinList(rules.keywordsAll),
     preferredCompanies: joinList(rules.preferredCompanies),
+    preferredTitles: joinList(rules.preferredTitles ?? []),
     excludedCompanies: joinList(rules.excludedCompanies),
     excludedTerms: joinList(rules.excludedTerms),
     locations: joinList(rules.locations),
@@ -72,6 +74,7 @@ export function formToRules(form: RulesForm): TriggerRules {
     keywordsAny: parseList(form.keywordsAny),
     keywordsAll: parseList(form.keywordsAll),
     preferredCompanies: parseList(form.preferredCompanies),
+    preferredTitles: parseList(form.preferredTitles),
     excludedCompanies: parseList(form.excludedCompanies),
     excludedTerms: parseList(form.excludedTerms),
     locations: parseList(form.locations),
@@ -84,7 +87,8 @@ export function formToRules(form: RulesForm): TriggerRules {
 export const triggerRulesSchema = z.object({
   keywordsAny: z.array(z.string()).default([]),
   keywordsAll: z.array(z.string()).default([]),
-  preferredCompanies: z.array(z.string()).default([]),
+  preferredCompanies: z.array(z.string()),
+  preferredTitles: z.array(z.string()).default([]),
   excludedCompanies: z.array(z.string()).default([]),
   excludedTerms: z.array(z.string()).default([]),
   locations: z.array(z.string()).default([]),

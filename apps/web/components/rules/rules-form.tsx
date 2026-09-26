@@ -10,6 +10,7 @@ const LIST_FIELDS: { key: keyof RulesFormValues; label: string; help: string }[]
   { key: 'keywordsAny', label: 'Keywords — any', help: 'Process when at least one appears in the title or ad. Leave empty to not require a keyword.' },
   { key: 'keywordsAll', label: 'Keywords — all', help: 'Every one of these must appear.' },
   { key: 'preferredCompanies', label: 'Preferred companies', help: 'Always process (keywords and match % are not enforced). Exclusions still win.' },
+  { key: 'preferredTitles', label: 'Preferred titles', help: 'Title fragments that always process — "head of", "director", "chief ". Match % is not enforced. Exclusions still win.' },
   { key: 'excludedCompanies', label: 'Excluded companies', help: 'Always skip.' },
   { key: 'excludedTerms', label: 'Excluded terms', help: 'Skip when any appears in the title or ad — e.g. graduate, intern, contract.' },
   { key: 'locations', label: 'Locations', help: 'Allowed locations (substring match; "Remote" also matches work-from-home ads). Empty = anywhere.' },

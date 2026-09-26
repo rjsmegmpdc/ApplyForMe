@@ -26,6 +26,8 @@ export interface TriggerRules {
   keywordsAll: string[];
   /** Company names that always process, even with no keyword hit (excludes still win). */
   preferredCompanies: string[];
+  /** Title patterns (case-insensitive substring, e.g. "head of", "director") that always process, even below the match threshold. Exclusions still win. */
+  preferredTitles: string[];
   excludedCompanies: string[];
   /** Terms in title/description that always skip (e.g. "graduate", "contract"). */
   excludedTerms: string[];
@@ -41,6 +43,7 @@ export const DEFAULT_TRIGGER_RULES: TriggerRules = {
   keywordsAny: [],
   keywordsAll: [],
   preferredCompanies: [],
+  preferredTitles: ['head of', 'director', 'general manager', 'chief '],
   excludedCompanies: [],
   excludedTerms: ['graduate', 'intern', 'junior'],
   locations: [],
@@ -65,6 +68,8 @@ export interface TriggerDecision {
   reasons: string[];
   keywordHits: string[];
   preferredCompany: boolean;
+  /** The preferred-title pattern that matched, if any. */
+  preferredTitle: string | null;
   parsedSalary: { min: number | null; max: number | null } | null;
 }
 
@@ -179,7 +184,9 @@ export function evaluateTrigger(input: TriggerInput, rules: TriggerRules): Trigg
     (c) => normaliseCompany(c).length > 0 && normaliseCompany(c) === companyNorm
   );
 
-  const base = { keywordHits, preferredCompany, parsedSalary };
+  const titleLower = input.title.toLowerCase();
+  const preferredTitle = (rules.preferredTitles ?? []).map((t) => t.trim().toLowerCase()).filter(Boolean).find((t) => titleLower.includes(t)) ?? null;
+  const base = { keywordHits, preferredCompany, preferredTitle, parsedSalary };
   const skip = (reason: string): TriggerDecision => ({ decision: 'skip', reasons: [reason], ...base });
 
   // 1. Excluded company — beats everything, including preferred.
@@ -211,6 +218,13 @@ export function evaluateTrigger(input: TriggerInput, rules: TriggerRules): Trigg
   const reasons: string[] = [];
 
   // 5. Preferred company — process regardless of keywords / match %.
+  if (preferredTitle) {
+    reasons.push(`preferred title: "${preferredTitle}" in "${input.title}"`);
+    if (keywordHits.length > 0) reasons.push(`keyword hits: ${keywordHits.join(', ')}`);
+    if (input.matchPercentage != null) reasons.push(`match ${input.matchPercentage}% (not enforced for preferred title)`);
+    return { decision: 'process', reasons, ...base };
+  }
+
   if (preferredCompany) {
     reasons.push(`preferred company: ${input.company}`);
     if (keywordHits.length > 0) reasons.push(`keyword hits: ${keywordHits.join(', ')}`);

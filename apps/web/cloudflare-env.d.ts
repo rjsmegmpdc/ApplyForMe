@@ -53,4 +53,6 @@ interface CloudflareEnv {
   ACCESS_TEAM_DOMAIN?: string;
   ACCESS_APP_AUD?: string;
   ACTION_LINK_SECRET?: string;
+  /** Optional bearer token for POST /api/admin/run-url (operator use without a browser session). Unset = route inert. */
+  ADMIN_TOKEN?: string;
 }

@@ -98,6 +98,7 @@ export function parseTriggerRules(rulesJson: string | null | undefined): Trigger
       keywordsAny: list(parsed.keywordsAny, DEFAULT_TRIGGER_RULES.keywordsAny),
       keywordsAll: list(parsed.keywordsAll, DEFAULT_TRIGGER_RULES.keywordsAll),
       preferredCompanies: list(parsed.preferredCompanies, DEFAULT_TRIGGER_RULES.preferredCompanies),
+      preferredTitles: list(parsed.preferredTitles, DEFAULT_TRIGGER_RULES.preferredTitles),
       excludedCompanies: list(parsed.excludedCompanies, DEFAULT_TRIGGER_RULES.excludedCompanies),
       excludedTerms: list(parsed.excludedTerms, DEFAULT_TRIGGER_RULES.excludedTerms),
       locations: list(parsed.locations, DEFAULT_TRIGGER_RULES.locations),
@@ -382,6 +383,7 @@ export async function processRegenerate(deps: PipelineDeps, runId: number): Prom
     decision: 'process',
     reasons: ['regenerate requested'],
     keywordHits: [],
+    preferredTitle: null,
     preferredCompany: false,
     parsedSalary: null,
   };
