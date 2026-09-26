@@ -46,6 +46,7 @@ import type { GenerateFn } from '@/server/ai/anthropic';
 import { checkDailyBudget, DAILY_TAILOR_BUDGET, NZ_TIME_ZONE } from '@/server/ai/budget';
 import { deterministicTailored, tailorWithGuard, type TailorInput } from '@/server/ai/tailor';
 import { base64ToBytes, docxToBase64, DOCX_CONTENT_TYPE, renderCvDocx, renderLetterDocx, safeFilename } from '@/server/docs/docx';
+import { bytesToBase64 } from '@/lib/base64';
 import { buildReviewEmail, type ReviewLinks, type ReviewOrigin } from './review-email';
 import type { FetchedPage } from '@/server/fetch/apify';
 
@@ -239,17 +240,8 @@ async function tailorAndDeliver(deps: PipelineDeps, ctx: DeliveryContext): Promi
 
   // 9. Action links (signed when the secret exists), review email, send.
   const appBaseUrl = env.APP_BASE_URL;
-  const links = {} as ReviewLinks;
   const linksSigned = !!env.ACTION_LINK_SECRET;
-  if (env.ACTION_LINK_SECRET) {
-    const expiresAt = Math.floor(nowMs / 1000) + ACTION_LINK_TTL_SECONDS;
-    for (const { key, action } of ACTIONS) {
-      links[key] = await signActionLink({ baseUrl: appBaseUrl, runId: run.id, action, secret: env.ACTION_LINK_SECRET, expiresAt });
-    }
-  } else {
-    const runUrl = `${appBaseUrl.replace(/\/+$/, '')}/runs/${run.id}`;
-    for (const { key } of ACTIONS) links[key] = runUrl;
-  }
+  const links = await reviewLinksFor(env, run.id, nowMs);
 
   const email = buildReviewEmail({ run, analysis, output, origin, decision, links, appBaseUrl, jobUrl: run.jobUrl, linksSigned, notes });
 
@@ -290,6 +282,22 @@ async function markFailed(db: Db, runId: number, err: unknown): Promise<ProcessR
     console.error(`[pipeline] run ${runId}: could not record failure: ${errorMessage(updateErr)}`);
   }
   return { runId, status: 'failed', reason };
+}
+
+/** The four one-click links: HMAC-signed with a 14-day expiry when the secret exists, else the run page. */
+async function reviewLinksFor(env: CloudflareEnv, runId: number, nowMs: number): Promise<ReviewLinks> {
+  const appBaseUrl = env.APP_BASE_URL;
+  const links = {} as ReviewLinks;
+  if (env.ACTION_LINK_SECRET) {
+    const expiresAt = Math.floor(nowMs / 1000) + ACTION_LINK_TTL_SECONDS;
+    for (const { key, action } of ACTIONS) {
+      links[key] = await signActionLink({ baseUrl: appBaseUrl, runId, action, secret: env.ACTION_LINK_SECRET, expiresAt });
+    }
+  } else {
+    const runUrl = `${appBaseUrl.replace(/\/+$/, '')}/runs/${runId}`;
+    for (const { key } of ACTIONS) links[key] = runUrl;
+  }
+  return links;
 }
 
 /* ------------------------------------------------------------------------ */
@@ -436,5 +444,65 @@ export async function processRegenerate(deps: PipelineDeps, runId: number): Prom
     return { runId: run.id, status: 'sent' };
   } catch (err) {
     return markFailed(db, run.id, err);
+  }
+}
+
+export type ResendResult = { runId: number; status: 'sent'; messageId: string } | { runId: number; status: 'failed'; reason: string };
+
+/**
+ * Re-send an already delivered pack exactly as stored — the analysis,
+ * tailored output and the .docx files in R2 — with fresh action links. No
+ * model call, no new run row. Used when the original email was lost or its
+ * attachments arrived unreadable (the base64-as-text bug of 2026-09-26).
+ */
+export async function resendRun(deps: PipelineDeps, runId: number, note?: string): Promise<ResendResult> {
+  const { db, env } = deps;
+  const run = await getRun(db, runId);
+  if (!run) return { runId, status: 'failed', reason: 'run not found' };
+  const output = parseJson<TailoredOutput>(run.tailoredJson);
+  const analysis = parseJson<AnalysisResult>(run.analysisJson);
+  if (!output || !analysis) return { runId, status: 'failed', reason: 'run has no stored documents to resend (never tailored)' };
+  if (!run.cvKey || !run.letterKey) return { runId, status: 'failed', reason: 'run has no stored .docx files' };
+  if (!env.DOCS) return { runId, status: 'failed', reason: 'DOCS bucket binding is not available' };
+  const [cv, letter] = await Promise.all([env.DOCS.get(run.cvKey), env.DOCS.get(run.letterKey)]);
+  if (!cv || !letter) return { runId, status: 'failed', reason: 'stored .docx files are missing from R2' };
+  const [cvBytes, letterBytes] = await Promise.all([cv.arrayBuffer(), letter.arrayBuffer()]);
+
+  const decision: TriggerDecision = parseJson<TriggerDecision>(run.triggerJson) ?? {
+    decision: 'process',
+    reasons: ['resend'],
+    keywordHits: [],
+    preferredTitle: null,
+    preferredCompany: false,
+    parsedSalary: null,
+  };
+  const origin: ReviewOrigin = run.origin && run.origin !== 'none' ? run.origin : 'fallback';
+  const nowMs = deps.now();
+  const links = await reviewLinksFor(env, run.id, nowMs);
+  const notes = [note ?? `Re-sent ${nzLongDate(nowMs)}: same documents as the original email.`];
+  const email = buildReviewEmail({ run, analysis, output, origin, decision, links, appBaseUrl: env.APP_BASE_URL, jobUrl: run.jobUrl, linksSigned: !!env.ACTION_LINK_SECRET, notes });
+
+  const user = await db.query.users.findFirst({ where: eq(schema.users.id, run.userId) });
+  const to = user?.reviewEmail ?? user?.email ?? null;
+  if (!to) return { runId, status: 'failed', reason: `user ${run.userId} has no review email address` };
+
+  try {
+    const { messageId } = await deps.send({
+      to,
+      subject: email.subject,
+      html: email.html,
+      text: email.text,
+      attachments: [
+        { filename: run.cvKey.slice(run.cvKey.lastIndexOf('/') + 1), contentType: DOCX_CONTENT_TYPE, base64: bytesToBase64(cvBytes) },
+        { filename: run.letterKey.slice(run.letterKey.lastIndexOf('/') + 1), contentType: DOCX_CONTENT_TYPE, base64: bytesToBase64(letterBytes) },
+      ],
+    });
+    await updateRun(db, run.id, { emailMessageId: messageId });
+    console.log(`[pipeline] run ${run.id}: re-sent to ${to} (${messageId})`);
+    return { runId: run.id, status: 'sent', messageId };
+  } catch (err) {
+    const reason = errorMessage(err).slice(0, 500);
+    console.error(`[pipeline] run ${run.id}: resend failed: ${reason}`);
+    return { runId: run.id, status: 'failed', reason };
   }
 }

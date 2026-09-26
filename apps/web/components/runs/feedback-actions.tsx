@@ -49,6 +49,21 @@ export function FeedbackActions({ runId, status }: { runId: number; status: RunS
     }
   }
 
+  async function resend() {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await fetch(`/api/runs/${runId}/resend`, { method: 'POST' });
+      const data = (await res.json().catch(() => ({}))) as { status?: string; reason?: string; error?: string };
+      if (!res.ok || data.status !== 'sent') setMsg({ ok: false, text: data.reason ?? data.error ?? `Resend failed (${res.status})` });
+      else setMsg({ ok: true, text: 'Pack re-sent to your review address.' });
+    } catch (e) {
+      setMsg({ ok: false, text: e instanceof Error ? e.message : 'Request failed' });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div>
       <div className={form.row}>
@@ -63,6 +78,9 @@ export function FeedbackActions({ runId, status }: { runId: number; status: RunS
         </button>
         <button type="button" className={form.btn} disabled={busy} onClick={() => submit('thumbs-up')} title="Signal only — status stays as is">
           👍 Thumbs up
+        </button>
+        <button type="button" className={form.btn} disabled={busy} onClick={resend} title="Email the stored CV and letter again with fresh links — no re-tailoring">
+          Resend email
         </button>
         <span className={styles.current}>current: {status}</span>
       </div>

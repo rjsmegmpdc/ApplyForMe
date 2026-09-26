@@ -7,7 +7,7 @@ import { createRun, getRun, recordFeedback, saveTriggerRules } from '@/server/ru
 import { verifyActionLink } from '@/lib/action-links';
 import { DAILY_TAILOR_BUDGET } from '@/server/ai/budget';
 import type { GenerateFn } from '@/server/ai/anthropic';
-import { ACTION_LINK_TTL_SECONDS, fallbackJobId, nzLongDate, parseTriggerRules, processListing, processRegenerate } from './run-job';
+import { ACTION_LINK_TTL_SECONDS, fallbackJobId, nzLongDate, parseTriggerRules, processListing, processRegenerate, resendRun } from './run-job';
 import { escapeHtml } from './review-email';
 import { FABRICATED_OUTPUT, FIXED_NOW_MS, USER, VALID_OUTPUT, fakeDeps, fakeEnv, insertRunAt, scriptedGenerate, setupDb } from './test-support';
 
@@ -385,5 +385,49 @@ describe('fetchPage returning a FetchedPage', () => {
     expect(run.jobTextSource).toBe('full-ad');
     expect(run.seekJobId).toBe('nolink:head of modern workplace|kiwi energy group');
     expect(sent[0].text).toContain('https://www.seek.co.nz/job/84131244');
+  });
+});
+
+describe('resendRun', () => {
+  it('re-sends the stored pack from R2 with fresh links, no model call, no new run', async () => {
+    const db = await setupDb();
+    const store = new Map<string, Uint8Array>();
+    const DOCS = {
+      put: async (key: string, value: Uint8Array) => {
+        store.set(key, value);
+        return null;
+      },
+      get: async (key: string) => {
+        const bytes = store.get(key);
+        return bytes ? { arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) } : null;
+      },
+    } as unknown as R2Bucket;
+    const { generate, calls } = scriptedGenerate([VALID_OUTPUT]);
+    const { deps, sent } = fakeDeps({ db, env: fakeEnv({ DOCS }), generate, fetchPage: fetchFixture });
+    const first = await processListing(deps, { userId: USER, processedEmailId: null, listing: LISTING });
+    expect(first.status).toBe('sent');
+    expect(calls).toHaveLength(1);
+
+    const result = await resendRun(deps, first.runId);
+    expect(result).toMatchObject({ runId: first.runId, status: 'sent' });
+    expect(calls).toHaveLength(1);
+    expect(sent).toHaveLength(2);
+    expect(sent[1].subject).toBe(sent[0].subject);
+    expect(sent[1].attachments!.map((a) => a.filename)).toEqual(sent[0].attachments!.map((a) => a.filename));
+    expect(sent[1].attachments![0].base64).toBe(sent[0].attachments![0].base64);
+    expect(sent[1].text).toContain('Re-sent');
+    expect(sent[1].text).toContain(`/api/runs/${first.runId}/action`);
+    expect(await db.select().from(schema.runs)).toHaveLength(1);
+  });
+
+  it('fails cleanly for an unknown run or one that was never tailored', async () => {
+    const db = await setupDb();
+    const { deps, sent } = fakeDeps({ db, generate: scriptedGenerate([VALID_OUTPUT]).generate, fetchPage: fetchFixture });
+    expect(await resendRun(deps, 999)).toMatchObject({ status: 'failed', reason: 'run not found' });
+    await saveTriggerRules(db, USER, JSON.stringify({ ...DEFAULT_TRIGGER_RULES, excludedTerms: ['modern workplace'] }));
+    const skipped = await processListing(deps, { userId: USER, processedEmailId: null, listing: LISTING });
+    expect(skipped.status).toBe('skipped');
+    expect((await resendRun(deps, skipped.runId)).status).toBe('failed');
+    expect(sent).toHaveLength(0);
   });
 });
