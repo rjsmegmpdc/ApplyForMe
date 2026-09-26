@@ -6,3 +6,6 @@ ACTION_LINK_SECRET=
 # identity falls back to user 1 (dev-mode escape hatch). Never set these empty in prod.
 ACCESS_TEAM_DOMAIN=
 ACCESS_APP_AUD=
+
+# Optional: Apify token for the job-page fallback (Seek 403s and LinkedIn 429s direct Worker reads)
+APIFY_TOKEN=

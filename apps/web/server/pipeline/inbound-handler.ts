@@ -26,19 +26,33 @@ import { resolveSendFn } from '@/server/email/send';
 import { resolveGenerateFn } from '@/server/ai/resolve-generate';
 import { ensureDefaultUser, findProcessedEmail, recordProcessedEmail } from '@/server/runs';
 import { processListing, type PipelineDeps, type ProcessResult } from './run-job';
+import { apifyConfigFromEnv, fetchPageViaApify, type ApifyConfig, type FetchedPage } from '@/server/fetch/apify';
 
 export const FETCH_TIMEOUT_MS = 10_000;
 const DESKTOP_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
+/** Sent on every outbound page/redirect request so we look like a browser click, not a bare bot. */
+const BROWSER_HEADERS: Record<string, string> = {
+  'User-Agent': DESKTOP_UA,
+  Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+  'Accept-Language': 'en-NZ,en;q=0.9',
+  'Upgrade-Insecure-Requests': '1',
+  'Sec-Fetch-Dest': 'document',
+  'Sec-Fetch-Mode': 'navigate',
+  'Sec-Fetch-Site': 'none',
+  'Sec-Fetch-User': '?1',
+};
 
 /**
  * Fetch a job page like a desktop browser; null on non-2xx, timeout, network
  * error, or a page with no usable job content (the pipeline then uses the
- * alert snippet). LinkedIn serves logged-out visitors an "authwall" for
- * /jobs/view/, but its guest job-posting endpoint usually returns the job
- * card HTML (with the description) without a session — so for LinkedIn URLs
- * that endpoint is tried first. Outcomes are logged for diagnosis.
+ * alert snippet). For LinkedIn URLs the guest job-posting endpoint is tried
+ * first, then /jobs/view/. In practice both boards refuse Cloudflare egress
+ * (Seek 403 on every host, LinkedIn 429), so when every direct read fails and
+ * Apify is configured (APIFY_TOKEN) the page is fetched through an Apify
+ * actor as a last resort — which also resolves Seek's tracked links, so the
+ * returned `finalUrl` is the canonical job page. Outcomes are logged.
  */
-export async function fetchJobPage(url: string): Promise<string | null> {
+export async function fetchJobPage(url: string, apify: ApifyConfig | null = null): Promise<FetchedPage | null> {
   const liId = extractLinkedInJobId(url);
   const candidates = liId
     ? [`https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/${liId}`, `https://www.linkedin.com/jobs/view/${liId}/`, url]
@@ -47,8 +61,15 @@ export async function fetchJobPage(url: string): Promise<string | null> {
     const html = await fetchOnce(candidate);
     if (html && looksLikeJobContent(html)) {
       console.log(`[fetch] ok ${candidate} bytes=${html.length}`);
-      return html;
+      return { html, finalUrl: candidate === url ? null : candidate };
     }
+  }
+  if (apify) {
+    console.log(`[fetch] direct reads failed for ${url}; trying Apify actor ${apify.actor}`);
+    const target = liId ? `https://www.linkedin.com/jobs/view/${liId}/` : url;
+    const page = await fetchPageViaApify(target, apify, looksLikeJobContent);
+    if (page) return page;
+    if (liId) return fetchPageViaApify(`https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/${liId}`, apify, looksLikeJobContent);
   }
   return null;
 }
@@ -65,11 +86,7 @@ async function fetchOnce(url: string): Promise<string | null> {
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
     const res = await fetch(url, {
-      headers: {
-        'User-Agent': DESKTOP_UA,
-        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-NZ,en;q=0.9',
-      },
+      headers: BROWSER_HEADERS,
       redirect: 'follow',
       signal: controller.signal,
     });
@@ -95,7 +112,7 @@ export async function resolveRedirectUrl(url: string): Promise<string | null> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
     try {
-      const res = await fetch(current, { method: 'GET', redirect: 'manual', headers: { 'User-Agent': DESKTOP_UA }, signal: controller.signal });
+      const res = await fetch(current, { method: 'GET', redirect: 'manual', headers: BROWSER_HEADERS, signal: controller.signal });
       const loc = res.headers.get('location');
       if (res.status >= 300 && res.status < 400 && loc) {
         current = new URL(loc, current).toString();
@@ -121,7 +138,7 @@ export function buildPipelineDeps(env: CloudflareEnv): PipelineDeps {
     db,
     env,
     send: resolveSendFn(env),
-    fetchPage: fetchJobPage,
+    fetchPage: (url) => fetchJobPage(url, apifyConfigFromEnv(env)),
     resolveRedirect: resolveRedirectUrl,
     generateFor: (userId) => resolveGenerateFn(db, env, userId),
     now: Date.now,

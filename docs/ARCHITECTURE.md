@@ -31,7 +31,7 @@ Gmail filter ──forward──▶ jobs@<domain>  (Email Routing → "Send to a
                                                 │  parse alert → JobListing[]
                                                 │  dedupe (processed_emails, runs.seekJobId)
                                                 │  trigger rules (engine/rules) — no LLM spend on skips
-                                                │  fetch full ad (Seek page) → engine/parse/seek-page
+                                                │  fetch full ad (Seek page; LinkedIn via Apify) → engine/parse/seek-page
                                                 │  analyse (engine/analyze) → evidence
                                                 │  tailor (server/ai/tailor: Claude, structured JSON)
                                                 │  claim guard → repair once → fallback
@@ -57,6 +57,20 @@ Gmail filter ──forward──▶ jobs@<domain>  (Email Routing → "Send to a
 | Auth | Cloudflare Access (Zero Trust, already active) | Sharing = an Access policy; identity code ported from AICoach |
 | LLM | Claude via the Messages API, `claude-opus-5` default | Personal key (encrypted at rest) beats server key; per-day cap |
 | Domain | New `.com` from Cloudflare Registrar | At-cost; DNS already on Cloudflare; keeps harkness.net.nz's family mail untouched |
+
+## Reading job pages
+
+`server/pipeline/inbound-handler.ts` owns all outbound HTTP: `fetchJobPage` (browser
+headers, 10 s timeout, LinkedIn guest endpoint first) and `resolveRedirectUrl` (manual
+redirect following for tracked links). Both boards refuse Cloudflare egress (Seek 403 on
+every host, LinkedIn 429), so `server/fetch/apify.ts` is the real path once `APIFY_TOKEN`
+is set: it runs a configurable Apify actor (`run-sync-get-dataset-items`; default
+`apify/cheerio-scraper` on a residential proxy) whose page function returns the HTML and
+the URL finally loaded. `fetchPage` therefore returns a `FetchedPage { html, finalUrl }`;
+the pipeline parses the HTML with the same engine code as a direct read and adopts a
+canonical `finalUrl` as the Apply link. See SETUP.md §10 for the matrix and the manual
+paste path. Dedupe keys: `<seek id>` / `linkedin:<id>` from the URL, else
+`nolink:<title>|<company>`, else a hash of the URL or snippet (`run-job.ts fallbackJobId`).
 
 ## What was kept from v1 (ported, pure)
 

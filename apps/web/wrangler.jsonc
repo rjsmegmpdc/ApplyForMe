@@ -92,6 +92,14 @@
 		// the separate "ApplyForMe action links" bypass app has its own AUD, not used.
 		// Local `next dev`: .dev.vars sets both empty → dev-mode fallback.
 		"ACCESS_TEAM_DOMAIN": "night-ninjas.cloudflareaccess.com",
-		"ACCESS_APP_AUD": "22c763766f0b817948e201942826f110251e80eedc10ac9ca389c9d0a6c305aa"
+		"ACCESS_APP_AUD": "22c763766f0b817948e201942826f110251e80eedc10ac9ca389c9d0a6c305aa",
+		// Job-page fallback via Apify (server/fetch/apify.ts): Seek answers 403 and
+		// LinkedIn 429 to Cloudflare egress, so pages are fetched through an Apify
+		// actor once the APIFY_TOKEN secret is set. Default actor: apify/cheerio-scraper
+		// with a residential proxy, page function returns the HTML + final URL. To
+		// change the actor or its input body, set APIFY_ACTOR / APIFY_INPUT here
+		// (input is a JSON string; {{url}} and {{id}} are substituted). Leave unset
+		// for the defaults.
+		"APIFY_ACTOR": "apify~cheerio-scraper"
 	}
 }

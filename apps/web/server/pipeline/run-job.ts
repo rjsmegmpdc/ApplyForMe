@@ -28,6 +28,7 @@ import {
   extractJobAdText,
   listingKey,
   isSeekLink,
+  canonicalLinkedInUrl,
   canonicalSeekUrl,
   type AnalysisResult,
   type JobListing,
@@ -46,13 +47,15 @@ import { checkDailyBudget, DAILY_TAILOR_BUDGET, NZ_TIME_ZONE } from '@/server/ai
 import { deterministicTailored, tailorWithGuard, type TailorInput } from '@/server/ai/tailor';
 import { base64ToBytes, docxToBase64, DOCX_CONTENT_TYPE, renderCvDocx, renderLetterDocx, safeFilename } from '@/server/docs/docx';
 import { buildReviewEmail, type ReviewLinks, type ReviewOrigin } from './review-email';
+import type { FetchedPage } from '@/server/fetch/apify';
 
 export interface PipelineDeps {
   db: Db;
   env: CloudflareEnv;
   send: SendFn;
   /** Full HTML of a job page, or null when it cannot be fetched (non-2xx, timeout, network error). */
-  fetchPage: (url: string) => Promise<string | null>;
+  /** The job page (HTML) or null; a FetchedPage also carries the URL finally loaded, adopted as the Apply link. */
+  fetchPage: (url: string) => Promise<string | FetchedPage | null>;
   /** Follow a tracked/redirect link to its final URL (null on failure). Used for Seek alert links, which carry no job id. */
   resolveRedirect: (url: string) => Promise<string | null>;
   /** Model resolution per user (server/ai/resolve-generate.ts); `generate` null means deterministic-only. */
@@ -119,9 +122,27 @@ function snippetText(listing: JobListing): string {
   return [listing.title, listing.company, listing.location, listing.salary, listing.description].filter((s) => s && s.trim().length > 0).join('\n');
 }
 
-/** A listing with no Seek link (legacy alert shape) still needs a dedupe key. */
-function fallbackJobId(listing: JobListing): string {
-  return `nolink:${listing.title}|${listing.company}`.toLowerCase().replace(/\s+/g, ' ').trim();
+/**
+ * Dedupe key for a listing whose URL carries no job id (legacy alert shape,
+ * or a tracked redirect the Worker could not resolve): title+company when a
+ * title is known, else a hash of the URL, else a hash of the snippet — never
+ * a constant, so unparsed cards do not all collapse onto one run.
+ */
+export function fallbackJobId(listing: JobListing): string {
+  const title = listing.title.trim();
+  if (title) return `nolink:${title}|${listing.company}`.toLowerCase().replace(/\s+/g, ' ').trim();
+  if (listing.url.trim()) return `url:${shortHash(listing.url.trim())}`;
+  return `text:${shortHash(snippetText(listing).toLowerCase())}`;
+}
+
+/** FNV-1a 32-bit, hex — stable across runtimes, good enough for a dedupe key. */
+export function shortHash(s: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(16).padStart(8, '0');
 }
 
 function parseJson<T>(json: string | null | undefined): T | null {
@@ -323,7 +344,13 @@ export async function processListing(
   let html: string | null = null;
   if (listing.url) {
     try {
-      html = await deps.fetchPage(listing.url);
+      const fetched = await deps.fetchPage(listing.url);
+      const page = typeof fetched === 'string' ? { html: fetched, finalUrl: null } : fetched;
+      html = page?.html ?? null;
+      // A tracked link that resolved (via Apify) to the real job page: use the
+      // canonical URL as the Apply link. The dedupe key stays as computed above.
+      const canonical = page?.finalUrl ? canonicalSeekUrl(page.finalUrl) ?? canonicalLinkedInUrl(page.finalUrl) : null;
+      if (canonical && canonical !== listing.url) listing = { ...listing, url: canonical };
     } catch (err) {
       console.warn(`[pipeline] fetch failed for ${listing.url}: ${errorMessage(err)}`);
       html = null;

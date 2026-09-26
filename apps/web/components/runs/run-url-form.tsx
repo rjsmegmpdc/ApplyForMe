@@ -13,6 +13,8 @@ export function RunUrlForm() {
   const router = useRouter();
   const [url, setUrl] = useState('');
   const [text, setText] = useState('');
+  const [title, setTitle] = useState('');
+  const [company, setCompany] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -23,7 +25,7 @@ export function RunUrlForm() {
       const res = await fetch('/api/runs/url', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ url: url.trim(), text: text.trim() || null }),
+        body: JSON.stringify({ url: url.trim(), text: text.trim() || null, title: title.trim() || null, company: company.trim() || null }),
       });
       const data = (await res.json().catch(() => ({}))) as { runId?: number; status?: string; reason?: string; error?: string };
       if (!res.ok) {
@@ -32,6 +34,8 @@ export function RunUrlForm() {
         setMsg(`Run ${data.runId}: ${data.status}${data.reason ? ` — ${data.reason}` : ''}`);
         setUrl('');
         setText('');
+        setTitle('');
+        setCompany('');
         router.refresh();
       }
     } catch (e) {
@@ -47,8 +51,12 @@ export function RunUrlForm() {
         Job link
       </label>
       <input id="run-url" className={form.input} type="url" placeholder="https://www.linkedin.com/jobs/view/… or https://www.seek.co.nz/job/…" value={url} onChange={(e) => setUrl(e.target.value)} disabled={busy} />
+      <div className={form.row}>
+        <input className={form.input} type="text" placeholder="Job title (optional)" aria-label="Job title" value={title} onChange={(e) => setTitle(e.target.value)} disabled={busy} />
+        <input className={form.input} type="text" placeholder="Company (optional)" aria-label="Company" value={company} onChange={(e) => setCompany(e.target.value)} disabled={busy} />
+      </div>
       <label className={form.label} htmlFor="run-text">
-        Ad text (optional — paste it if the page cannot be fetched)
+        Ad text (optional — paste it if the page cannot be fetched; LinkedIn and Seek both block direct reads)
       </label>
       <textarea id="run-text" className={form.textarea} rows={4} value={text} onChange={(e) => setText(e.target.value)} disabled={busy} />
       <div className={form.row}>

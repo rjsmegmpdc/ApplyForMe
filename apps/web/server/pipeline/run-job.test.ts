@@ -7,7 +7,7 @@ import { createRun, getRun, recordFeedback, saveTriggerRules } from '@/server/ru
 import { verifyActionLink } from '@/lib/action-links';
 import { DAILY_TAILOR_BUDGET } from '@/server/ai/budget';
 import type { GenerateFn } from '@/server/ai/anthropic';
-import { ACTION_LINK_TTL_SECONDS, nzLongDate, parseTriggerRules, processListing, processRegenerate } from './run-job';
+import { ACTION_LINK_TTL_SECONDS, fallbackJobId, nzLongDate, parseTriggerRules, processListing, processRegenerate } from './run-job';
 import { escapeHtml } from './review-email';
 import { FABRICATED_OUTPUT, FIXED_NOW_MS, USER, VALID_OUTPUT, fakeDeps, fakeEnv, insertRunAt, scriptedGenerate, setupDb } from './test-support';
 
@@ -271,6 +271,23 @@ describe('processListing', () => {
     const again = await processListing(deps, { userId: USER, processedEmailId: null, listing: { ...LISTING, url: '' } });
     expect(again.reason).toBe('duplicate');
   });
+
+  it('unparsed cards (no title) behind unresolved tracked links are keyed on the URL, not collapsed onto one run', async () => {
+    const db = await setupDb();
+    await permissiveRules(db);
+    const { deps } = fakeDeps({ db, generate: scriptedGenerate([VALID_OUTPUT]).generate });
+    const a = { ...LISTING, title: '', company: '', url: 'https://email.s.seek.co.nz/uni/ss/c/aaa/h001.x' };
+    const b = { ...LISTING, title: '', company: '', url: 'https://email.s.seek.co.nz/uni/ss/c/bbb/h001.y' };
+    const ra = await processListing(deps, { userId: USER, processedEmailId: null, listing: a });
+    const rb = await processListing(deps, { userId: USER, processedEmailId: null, listing: b });
+    expect(ra.status).toBe('sent');
+    expect(rb.status).toBe('sent');
+    expect(rb.runId).not.toBe(ra.runId);
+    expect((await getRun(db, ra.runId))!.seekJobId).toMatch(/^url:[0-9a-f]{8}$/);
+    expect((await processListing(deps, { userId: USER, processedEmailId: null, listing: a })).reason).toBe('duplicate');
+    expect(fallbackJobId({ ...a, url: '' })).toMatch(/^text:[0-9a-f]{8}$/);
+    expect(fallbackJobId({ ...a, url: '' })).not.toBe(fallbackJobId({ ...b, url: '', description: 'different snippet' }));
+  });
 });
 
 describe('processRegenerate', () => {
@@ -348,5 +365,25 @@ describe('Seek tracked links', () => {
     // Same tracked link again (a re-sent alert) dedupes on the resolved id.
     const again = await processListing(deps, { userId: USER, processedEmailId: null, listing });
     expect(again).toMatchObject({ status: 'skipped', reason: 'duplicate' });
+  });
+});
+
+describe('fetchPage returning a FetchedPage', () => {
+  it('adopts the canonical URL of a resolved tracked link as the Apply link, keeps the dedupe key', async () => {
+    const db = await setupDb();
+    await permissiveRules(db);
+    const tracked = 'https://email.s.seek.co.nz/uni/ss/c/u001.abc/4u8/xyz/h47/h001.def';
+    const { deps, sent } = fakeDeps({
+      db,
+      generate: scriptedGenerate([VALID_OUTPUT]).generate,
+      fetchPage: async () => ({ html: PAGE, finalUrl: 'https://www.seek.co.nz/job/84131244?type=standard&ref=rec' }),
+    });
+    const result = await processListing(deps, { userId: USER, processedEmailId: null, listing: { ...LISTING, url: tracked } });
+    expect(result.status).toBe('sent');
+    const run = (await getRun(db, result.runId))!;
+    expect(run.jobUrl).toBe('https://www.seek.co.nz/job/84131244');
+    expect(run.jobTextSource).toBe('full-ad');
+    expect(run.seekJobId).toBe('nolink:head of modern workplace|kiwi energy group');
+    expect(sent[0].text).toContain('https://www.seek.co.nz/job/84131244');
   });
 });

@@ -55,4 +55,10 @@ interface CloudflareEnv {
   ACTION_LINK_SECRET?: string;
   /** Optional bearer token for POST /api/admin/run-url (operator use without a browser session). Unset = route inert. */
   ADMIN_TOKEN?: string;
+  /** Optional Apify API token — enables the job-page fallback for Seek and LinkedIn (server/fetch/apify.ts). Unset = fallback inert. */
+  APIFY_TOKEN?: string;
+  /** Apify actor (`user~actor`) used for that fallback; var, default apify~cheerio-scraper. */
+  APIFY_ACTOR?: string;
+  /** JSON input template for the actor with `{{url}}` / `{{id}}` placeholders; var, default in server/fetch/apify.ts. */
+  APIFY_INPUT?: string;
 }

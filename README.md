@@ -1,9 +1,9 @@
 # ApplyForMe
 
-Reads the Seek.co.nz job alerts you already get, decides which ones are worth your
-time, tailors your CV and cover letter to each with Claude, and emails you the pack
-with the **Apply on Seek** link. You review and decide. The web app is for tuning the
-system, not running it.
+Reads the Seek.co.nz and LinkedIn job alerts you already get, decides which ones are
+worth your time, tailors your CV and cover letter to each with Claude, and emails you
+the pack with the **Apply** link. You review and decide. The web app is for tuning the
+system, not running it — plus a *paste a job link* form for ads that never came by email.
 
 Everything runs on Cloudflare (Workers Paid, D1, R2, Email Routing, Email Service,
 Access) in one Worker. Design record: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
@@ -15,7 +15,8 @@ Setup: [docs/SETUP.md](docs/SETUP.md).
 2. Email Routing hands it to this Worker. The alert is parsed into listings and deduped.
 3. **Trigger rules** (keywords, preferred and excluded companies, locations, salary
    floor, minimum match) decide whether the job earns any LLM spend.
-4. The full ad is fetched and scored against your master profile with evidence.
+4. The full ad is fetched (Seek directly; LinkedIn through an optional Apify actor, since
+   LinkedIn blocks Cloudflare reads) and scored against your master profile with evidence.
 5. Claude rewrites your summary, reorders your highlights, and drafts the letter.
    A **claim guard** checks every employer, title, bullet, number, year and
    certification against your profile. One repair pass is allowed; otherwise the

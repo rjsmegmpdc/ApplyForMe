@@ -104,12 +104,66 @@ the single-user dev fallback.
 ## 9. Seed your profile and rules
 
 Open the app → Profile → paste/import the master profile (v1's JSON works as-is) →
-Rules → set keywords, preferred companies, exclusions, minimum match. Save.
+Rules → set keywords, preferred titles/companies, exclusions, minimum match. Save.
+Preferences → add whole CVs / cover letters as **exemplars** so tailoring copies your voice.
 
-## 10. Local development
+Note on preferred titles: a title hit ("head of", "director", …) bypasses the minimum
+match, so an off-target "Head of Retention" still gets a pack. Add such words to
+*excluded terms* as they show up.
+
+## 10. Job pages: what the Worker can and cannot read — and the Apify fallback
+
+Findings from the live Worker (probed 2026-09-26 with `/api/admin/probe`), so nobody
+re-discovers them:
+
+| Source | Direct read from the Worker | Without Apify the pipeline uses |
+|---|---|---|
+| Seek job page `www.seek.co.nz/job/<id>` (JobMail alert links carry the id) | **403** — Seek blocks Cloudflare egress on every host, search API included | the alert snippet |
+| Seek **recommendation** emails (`email.s.seek.co.nz/uni/ss/c/…` tracked links; no id anywhere in the email) | **403** on the tracking domain, so the redirect never resolves | the card snippet (title, company, location, 3 bullets); dedupe keyed on title+company |
+| LinkedIn `linkedin.com/jobs/view/<id>` and the guest `jobs-guest/jobs/api/jobPosting/<id>` endpoint | **429** on both | the pasted text |
+
+So without a third party the packs are built from snippets, and the Seek Apply link is
+the tracked email link. **With Apify** the Worker gets the real page: full ad text,
+JSON-LD title/company/salary, and (for tracked links) the canonical
+`seek.co.nz/job/<id>` URL as the Apply link.
+
+**Enable it** (one secret; the account's default plan is enough for a few jobs a day):
 
 ```
-cp apps/web/.dev.vars.example apps/web/.dev.vars   # fill ANTHROPIC_API_KEY etc.
+cd apps/web
+printf '%s' '<your apify token>' | npx wrangler secret put APIFY_TOKEN
+```
+
+Defaults (`server/fetch/apify.ts`): actor `apify/cheerio-scraper`, one page, no crawl,
+**residential** Apify proxy (datacenter IPs get the same 403/429 the Worker does), a page
+function that returns the HTML plus the URL finally loaded. Cost is the actor's compute
+(seconds) plus residential proxy traffic (~0.5 MB per page) — well under a cent a job.
+If your Apify plan has no residential proxy access, set `APIFY_INPUT` in `wrangler.jsonc`
+to the same JSON without `"apifyProxyGroups":["RESIDENTIAL"]` and see whether the
+datacenter pool gets through. Any other actor works too: set `APIFY_ACTOR` and an
+`APIFY_INPUT` template (`{{url}}` / `{{id}}` are substituted); a job-detail actor's first
+dataset item is mapped heuristically (title / company / location / salary / the longest
+`…desc…` field) when it has no `html` field.
+
+**Probe a URL without running the pipeline** (needs `ADMIN_TOKEN`; rotate it each time):
+
+```
+curl -sS -X POST https://app.applyforme.dev/api/admin/probe \
+  -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"url":"https://www.linkedin.com/jobs/view/4460776154/","mode":"fetch"}'   # or "resolve" / "apify"
+```
+
+Note: Cloudflare also rejects requests to `*.workers.dev` from clients with a bare
+`Python-urllib` user agent (403 before the Worker runs); send any other `User-Agent`.
+
+**Manual path that always works:** Runs → *Analyse a job link* → paste the URL, the ad
+text, and (optionally) title + company. The same fields are accepted by
+`POST /api/admin/run-url` for scripted use.
+
+## 11. Local development
+
+```
+cp apps/web/.dev.vars.example apps/web/.dev.vars   # fill ANTHROPIC_API_KEY, optional APIFY_TOKEN
 npm run dev                                        # http://localhost:3000, miniflare D1/R2
 npx wrangler d1 migrations apply applyforme-db --local
 ```
