@@ -92,6 +92,16 @@ export default async function SettingsPage() {
             <dt>Key encryption</dt>
             <dd>{env.TOKENS_ENC_KEY ? <Badge tone="ok">TOKENS_ENC_KEY set</Badge> : <Badge tone="warn">TOKENS_ENC_KEY unset</Badge>}</dd>
           </div>
+          <div>
+            <dt>Job-page fetching</dt>
+            <dd>
+              {env.APIFY_TOKEN ? (
+                <Badge tone="ok">Apify fallback on · {env.APIFY_ACTOR || 'apify~cheerio-scraper'}</Badge>
+              ) : (
+                <Badge tone="warn">APIFY_TOKEN unset · Seek and LinkedIn block direct reads, packs use alert snippets</Badge>
+              )}
+            </dd>
+          </div>
         </dl>
       </Section>
     </>
