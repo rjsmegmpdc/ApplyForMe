@@ -1,0 +1,32 @@
+{
+  "admin": {
+    "name": "E2E Admin",
+    "email": "admin@e2e.test",
+    "pin": "111111",
+    "role": "ADMIN"
+  },
+  "user": {
+    "name": "E2E User",
+    "email": "user@e2e.test",
+    "pin": "222222",
+    "role": "USER"
+  },
+  "viewer": {
+    "name": "E2E Viewer",
+    "email": "viewer@e2e.test",
+    "pin": "333333",
+    "role": "VIEWER"
+  },
+  "lockout": {
+    "name": "E2E Lockout",
+    "email": "lockout@e2e.test",
+    "pin": "444444",
+    "role": "USER"
+  },
+  "recover": {
+    "name": "E2E Recover",
+    "email": "recover@e2e.test",
+    "pin": "555555",
+    "role": "USER"
+  }
+}

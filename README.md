@@ -28,6 +28,28 @@ npm run dev
 
 Open http://localhost:3000 and login with `smharkness.nz@gmail.com` / PIN: `123456`
 
+## End-to-end tests
+
+Browser tests live in `e2e/` and use [Playwright](https://playwright.dev) (Chromium).
+
+```bash
+npm install
+npx playwright install chromium   # first time only, if you don't already have Playwright's Chromium
+npm run test:e2e                  # headless run of the whole suite
+npm run test:e2e:ui               # interactive UI mode
+npm run test:e2e:report           # open the last HTML report (playwright-report/)
+npx playwright test e2e/questions.spec.ts   # a single spec
+```
+
+`npm run test:e2e` needs no extra setup:
+
+- **Isolated database**: it creates a fresh SQLite file at `e2e/.tmp/e2e.db` (via `e2e/support/prepare-db.mjs`) and starts `next dev` on port **3100** with `DATABASE_URL` pointing at it. `src/lib/db.ts` honours `DATABASE_URL` when set, so your `prisma/applyforme.db` is never touched. Each run reseeds from scratch.
+- **Test accounts** (seeded from `e2e/support/users.json`, test-only PINs): `admin@e2e.test` / `111111` (ADMIN), `user@e2e.test` / `222222` (USER), `viewer@e2e.test` / `333333` (VIEWER), plus `lockout@` and `recover@` accounts for the lockout and PIN-recovery tests. `e2e/auth.setup.ts` signs each role in through the real PIN login form once and saves the session to `e2e/.auth/`.
+- **External services** are not contacted: OAuth and SMTP env vars are blanked (email goes to the console transport), and the two endpoints that scrape third-party sites (`/api/research/company`, `/api/research/hiring-manager`) are stubbed in the browser by `e2e/analyse.spec.ts`.
+- `e2e/destructive.spec.ts` ("Delete Everything") runs last, as its own Playwright project.
+- Tests marked `test.fail()` document known app bugs; each has a comment explaining it. When a bug is fixed, that test starts "unexpectedly passing": remove the `.fail` then.
+- Set `E2E_SERVER_LOGS=1` to see the Next.js server output, `E2E_PORT` to use a different port, or `E2E_CHROMIUM_PATH` to point at a specific Chromium binary.
+
 ## Tech Stack
 
 Next.js 16 | TypeScript | Tailwind CSS v4 | Prisma + SQLite | NextAuth.js v5 | docx

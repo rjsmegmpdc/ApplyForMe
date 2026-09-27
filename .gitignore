@@ -5,3 +5,11 @@ prisma/applyforme.db
 .env
 *.db-journal
 extracted/
+
+# Playwright e2e
+/e2e/.tmp/
+/e2e/.auth/
+/test-results/
+/playwright-report/
+/blob-report/
+*.tsbuildinfo
