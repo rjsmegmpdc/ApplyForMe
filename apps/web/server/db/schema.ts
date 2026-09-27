@@ -199,6 +199,8 @@ export const runs = sqliteTable(
     letterKey: text('letter_key'),
     /** Message-ID returned by the outbound send — lets a reply be threaded/traced. */
     emailMessageId: text('email_message_id'),
+    /** When Matt ticked "Submitted" (he actually applied for the job); null = not submitted. Independent of `status`. */
+    submittedAt: integer('submitted_at', { mode: 'timestamp' }),
     error: text('error'),
     createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`).notNull(),
     updatedAt: integer('updated_at', { mode: 'timestamp' }).default(sql`(unixepoch())`).notNull(),

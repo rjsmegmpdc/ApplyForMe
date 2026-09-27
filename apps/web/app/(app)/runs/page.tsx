@@ -2,21 +2,20 @@ import Link from 'next/link';
 import { getDb } from '@/server/db';
 import { listRuns } from '@/server/runs';
 import { pageIdentity } from '@/lib/ui/session';
-import { formatNz, ORIGIN_TONE, STATUS_TONE } from '@/lib/ui/format';
-import { Badge } from '@/components/ui/badge';
+import { toRunRow } from '@/lib/ui/runs-table';
+import { RunsDashboard } from '@/components/runs/runs-dashboard';
 import { RunUrlForm } from '@/components/runs/run-url-form';
 import { Note, PageTitle, Section, SessionExpired } from '@/components/ui/section';
-import styles from './runs.module.css';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-/** Runs inbox — one row per Seek job the pipeline has looked at, newest first. */
+/** Runs inbox — per-day stats and one sortable, filterable row per job the pipeline has looked at. */
 export default async function RunsPage() {
   const identity = await pageIdentity();
   if (!identity) return <SessionExpired />;
 
-  const runs = await listRuns(getDb(), identity.userId, { limit: 100 });
+  const runs = await listRuns(getDb(), identity.userId, { limit: 500 });
 
   return (
     <>
@@ -38,44 +37,7 @@ export default async function RunsPage() {
           </Note>
         </Section>
       ) : (
-        <div className={styles.tableWrap}>
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>Created</th>
-                <th>Job</th>
-                <th>Company</th>
-                <th>Location</th>
-                <th className={styles.num}>Match</th>
-                <th>Status</th>
-                <th>Origin</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {runs.map((run) => (
-                <tr key={run.id}>
-                  <td className={styles.nowrap}>{formatNz(run.createdAt)}</td>
-                  <td>
-                    <a href={run.jobUrl} target="_blank" rel="noopener noreferrer">
-                      {run.jobTitle}
-                    </a>
-                  </td>
-                  <td>{run.company ?? <span className={styles.muted}>—</span>}</td>
-                  <td>{run.location ?? <span className={styles.muted}>—</span>}</td>
-                  <td className={styles.num}>{run.matchPercentage != null ? `${run.matchPercentage}%` : <span className={styles.muted}>—</span>}</td>
-                  <td>
-                    <Badge tone={STATUS_TONE[run.status]}>{run.status}</Badge>
-                  </td>
-                  <td>{run.origin && run.origin !== 'none' ? <Badge tone={ORIGIN_TONE[run.origin] ?? 'muted'}>{run.origin}</Badge> : <span className={styles.muted}>—</span>}</td>
-                  <td className={styles.nowrap}>
-                    <Link href={`/runs/${run.id}`}>Open</Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <RunsDashboard initialRows={runs.map(toRunRow)} />
       )}
     </>
   );

@@ -103,6 +103,22 @@ export async function listRuns(db: Db, userId: number, opts: { limit?: number } 
     .limit(limit);
 }
 
+/**
+ * Tick / untick "Submitted" (Matt applied for the job). Independent of the
+ * pipeline status, except that unticking a run whose status is 'applied'
+ * returns it to 'sent' so the two never contradict. Null when the run does
+ * not exist.
+ */
+export async function setRunSubmitted(db: Db, runId: number, submitted: boolean, now: Date = new Date()): Promise<Run | null> {
+  const existing = await getRun(db, runId);
+  if (!existing) return null;
+  if (submitted) {
+    if (existing.submittedAt) return existing;
+    return (await updateRun(db, runId, { submittedAt: now })) ?? existing;
+  }
+  return (await updateRun(db, runId, { submittedAt: null, ...(existing.status === 'applied' ? { status: 'sent' as const } : {}) })) ?? existing;
+}
+
 /* ------------------------------------------------------------------------ */
 /* Feedback                                                                  */
 /* ------------------------------------------------------------------------ */
@@ -134,7 +150,11 @@ export async function recordFeedback(
   const [fb] = await db.insert(schema.feedback).values({ runId, action, reason: trimmedReason }).returning();
 
   const nextStatus = STATUS_FLIPPING_ACTIONS[action];
-  const run = nextStatus ? ((await updateRun(db, runId, { status: nextStatus })) ?? existing) : existing;
+  // "Applied" also ticks Submitted (keeping the first submission time).
+  const patch: Partial<Run> | null = nextStatus
+    ? { status: nextStatus, ...(action === 'applied' && !existing.submittedAt ? { submittedAt: new Date() } : {}) }
+    : null;
+  const run = patch ? ((await updateRun(db, runId, patch)) ?? existing) : existing;
 
   let preferenceId: number | null = null;
   if (trimmedReason) {
