@@ -11,9 +11,13 @@
 import { default as handler } from './.open-next/worker.js';
 import { handleInboundEmail } from './server/pipeline/inbound-handler';
 import { handleScheduledSweep } from './server/pipeline/scheduled-handler';
+import { workersDevRedirect } from './server/host-redirect';
 
 export default {
-  fetch: handler.fetch,
+  // Browsers on the *.workers.dev address (not covered by Access) are sent to the app domain.
+  async fetch(request: Request, env: CloudflareEnv, ctx: ExecutionContext): Promise<Response> {
+    return workersDevRedirect(request, env.APP_BASE_URL) ?? handler.fetch(request, env, ctx);
+  },
 
   async email(message: ForwardableEmailMessage, env: CloudflareEnv, ctx: ExecutionContext): Promise<void> {
     await handleInboundEmail(message, env, ctx);

@@ -101,6 +101,10 @@ is never open in single-user mode. The email and cron handlers do not use identi
 the pipeline itself is unaffected. Locally, `.dev.vars` sets both empty, which turns on
 the single-user dev fallback.
 
+**Use `https://app.applyforme.dev`, not the workers.dev address.** Access protects only the
+custom domain. Browser requests to `applyforme.<account>.workers.dev` are redirected there
+(`server/host-redirect.ts`); only the bearer-token `/api/admin/*` routes answer on workers.dev.
+
 ## 9. Seed your profile and rules
 
 Open the app → Profile → paste/import the master profile (v1's JSON works as-is) →
