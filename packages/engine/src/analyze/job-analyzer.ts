@@ -20,6 +20,7 @@
  *
  * Pure: same (jobText, profile) → same result. No I/O, no clock, no random.
  */
+import type { SalaryAssessment } from '../salary/salary-fit';
 import type { BenefitMatch, UserProfile } from '../types';
 import { matchBenefits } from './benefits';
 
@@ -43,8 +44,14 @@ export interface AnalysisResult {
   officeLocation: string;
   requirements: JobRequirement[];
   matches: MatchResult[];
-  /** 0–100; importance-weighted share of evidenced requirements, scaled by keyword coverage. */
+  /**
+   * 0–100; importance-weighted share of evidenced requirements, scaled by
+   * keyword coverage — then, when the profile has a salary target, blended
+   * with salary fit (see `salary`, salary/salary-fit.ts).
+   */
   matchPercentage: number;
+  /** Salary band (advertised or estimated, NZD) and its fit to the profile target; absent when salary is not scored. */
+  salary?: SalaryAssessment;
   /** Distinct engine keywords found in the ad (the vocabulary the score is based on). */
   keywordsFound: string[];
   tailoredSummary: string;

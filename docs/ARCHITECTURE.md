@@ -72,6 +72,23 @@ canonical `finalUrl` as the Apply link. See SETUP.md §10 for the matrix and the
 paste path. Dedupe keys: `<seek id>` / `linkedin:<id>` from the URL, else
 `nolink:<title>|<company>`, else a hash of the URL or snippet (`run-job.ts fallbackJobId`).
 
+## Salary in the score
+
+`packages/engine/src/salary/salary-fit.ts`. Every job gets a band in **NZD per year**:
+the advertised salary (listing field, else a salary line in the ad; AUD/USD/GBP converted,
+an "$" on an Australian job read as AUD, hourly ×1,880 h and day rates ×220 days), or —
+when nothing is stated — an **estimated** market band for similar roles from
+`salary/market-bands.ts` (NZ, or AU × 1.12 premium × 1.12 AUD→NZD), labelled "not
+specified". The bands are calibrated against Robert Walters NZ 2026, SEEK salary insights and
+Robert Half NZ 2026 (sources in the file header) — a reference table, not live data.
+
+Fit to the profile target: inside = 100, overlapping = 75–100, below falls to 0 over $50k,
+above keeps a floor of 40. Blend: `match = skills × (1 − w) + fit × w`, with `w` the profile
+weight (default 20%) for an advertised salary and half of it for an estimate. The analysis
+stores both (`analysis.salary.skillsMatch`, `.fit`, `.basis`); the review email and run page
+show the basis and verdict. A profile save that changes the target re-scores stored runs
+(`server/pipeline/rescore-salary.ts`) without re-tailoring or emailing.
+
 ## What was kept from v1 (ported, pure)
 
 - 12-category keyword analyser with evidence → `packages/engine/src/analyze`

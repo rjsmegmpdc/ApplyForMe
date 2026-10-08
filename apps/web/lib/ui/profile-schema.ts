@@ -36,6 +36,16 @@ export const priorityBenefitSchema = z.object({
   priority: z.number(),
 });
 
+/** Target base salary, NZD per year; weight is the % of the match score given to salary fit (0–50). */
+export const salaryTargetSchema = z
+  .object({
+    min: z.number().int().positive(),
+    max: z.number().int().positive(),
+    currency: z.literal('NZD').default('NZD'),
+    weight: z.number().min(0).max(50).optional(),
+  })
+  .refine((t) => t.max >= t.min, { message: 'max must be at least min', path: ['max'] });
+
 export const userProfileSchema = z.object({
   id: str.min(1).default('default'),
   personal: z.object({
@@ -52,6 +62,7 @@ export const userProfileSchema = z.object({
   career_history: z.array(careerRoleSchema),
   certifications_and_training: z.array(certificationSchema),
   priority_benefits: z.array(priorityBenefitSchema).optional(),
+  salary_target: salaryTargetSchema.optional(),
 });
 
 // Compile-time check that the schema's output is assignable to the engine type.

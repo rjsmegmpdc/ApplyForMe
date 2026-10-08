@@ -22,6 +22,7 @@
 import { eq } from 'drizzle-orm';
 import {
   analyzeJob,
+  applySalaryToAnalysis,
   DEFAULT_TRIGGER_RULES,
   evaluateTrigger,
   extractJobAdMeta,
@@ -376,8 +377,12 @@ export async function processListing(
   const location = listing.location.trim() || meta.location || '';
   const salary = listing.salary.trim() || meta.salary || '';
 
-  // 4. Analyse.
-  const analysis = analyzeJob(jobText, profile.profileJson, { title, company });
+  // 4. Analyse, then blend salary fit (advertised or estimated NZD band vs the profile target) into the match.
+  const analysis = applySalaryToAnalysis(
+    analyzeJob(jobText, profile.profileJson, { title, company }),
+    { title, salary, text: jobText, location },
+    profile.profileJson.salary_target
+  );
 
   // 5. Trigger rules → the run row.
   const rulesRow = await getTriggerRules(db, userId);
@@ -424,9 +429,13 @@ export async function processRegenerate(deps: PipelineDeps, runId: number): Prom
   const profile = stored ?? (await getOrCreateDefaultProfile(db, run.userId));
   if (!profile) return markFailed(db, run.id, new Error('no profile'));
 
-  const analysis =
+  // Stored analysis (or a fresh one), with salary re-scored against the CURRENT target — idempotent for runs already scored.
+  const analysis = applySalaryToAnalysis(
     parseJson<AnalysisResult>(run.analysisJson) ??
-    analyzeJob(run.jobText, profile.profileJson, { title: run.jobTitle, company: run.company ?? undefined });
+      analyzeJob(run.jobText, profile.profileJson, { title: run.jobTitle, company: run.company ?? undefined }),
+    { title: run.jobTitle, salary: run.salaryText ?? '', text: run.jobText, location: run.location ?? '' },
+    profile.profileJson.salary_target
+  );
   const decision: TriggerDecision = parseJson<TriggerDecision>(run.triggerJson) ?? {
     decision: 'process',
     reasons: ['regenerate requested'],

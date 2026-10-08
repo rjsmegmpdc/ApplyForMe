@@ -110,6 +110,9 @@ custom domain. Browser requests to `applyforme.<account>.workers.dev` are redire
 Open the app → Profile → paste/import the master profile (v1's JSON works as-is) →
 Rules → set keywords, preferred titles/companies, exclusions, minimum match. Save.
 Preferences → add whole CVs / cover letters as **exemplars** so tailoring copies your voice.
+Profile → **Target salary (NZD)**: min, max and the salary weight (default 20%). Each job's
+salary band, advertised or estimated, is scored against it and blended into the match %
+(details in ARCHITECTURE.md, "Salary in the score"). Saving a new target re-scores existing runs.
 
 Note on preferred titles: a title hit ("head of", "director", …) bypasses the minimum
 match, so an off-target "Head of Retention" still gets a pack. Add such words to

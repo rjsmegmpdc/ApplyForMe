@@ -1,3 +1,4 @@
+import { FIXTURE_PROFILE } from '../../../../packages/engine/src/__fixtures__/profile';
 import { describe, it, expect } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { buildSeekJobPage } from '../../../../packages/engine/src/__fixtures__/seek-job-page';
@@ -429,5 +430,43 @@ describe('resendRun', () => {
     expect(skipped.status).toBe('skipped');
     expect((await resendRun(deps, skipped.runId)).status).toBe('failed');
     expect(sent).toHaveLength(0);
+  });
+});
+
+describe('salary in the match score', () => {
+  async function withTarget(target: Record<string, unknown> | null) {
+    const db = await setupDb({ profile: false });
+    await db.insert(schema.profiles).values({ userId: USER, name: 'Fixture', profileJson: target ? { ...FIXTURE_PROFILE, salary_target: target } : FIXTURE_PROFILE, isDefault: true } as never);
+    await permissiveRules(db);
+    return db;
+  }
+
+  it('advertised salary within target: blended at full weight, shown in the email and stored on the run', async () => {
+    const db = await withTarget({ min: 180_000, max: 250_000, currency: 'NZD', weight: 20 });
+    const { deps, sent } = fakeDeps({ db, generate: scriptedGenerate([VALID_OUTPUT]).generate, fetchPage: fetchFixture });
+    const result = await processListing(deps, { userId: USER, processedEmailId: null, listing: LISTING });
+    const run = (await getRun(db, result.runId))!;
+    const analysis = JSON.parse(run.analysisJson!);
+    expect(analysis.salary).toMatchObject({ source: 'advertised', minNzd: 180_000, maxNzd: 200_000, fit: 100, position: 'within', weight: 20 });
+    expect(run.matchPercentage).toBe(Math.round(analysis.salary.skillsMatch * 0.8 + 100 * 0.2));
+    expect(sent[0].text).toContain('Salary: Advertised: $180k–$200k NZD — within your $180k–$250k target · salary fit 100% · weight 20%');
+    expect(sent[0].text).toMatch(/\(skills \d+% · salary fit 100% \(weight 20%\)\)/);
+  });
+
+  it('no salary in the ad: estimated band for the role, half weight, labelled not specified', async () => {
+    const db = await withTarget({ min: 180_000, max: 250_000, currency: 'NZD' });
+    const { deps, sent } = fakeDeps({ db, generate: scriptedGenerate([VALID_OUTPUT]).generate, fetchPage: async () => null });
+    const result = await processListing(deps, { userId: USER, processedEmailId: null, listing: { ...LISTING, title: 'Product Owner', salary: '' } });
+    const analysis = JSON.parse((await getRun(db, result.runId))!.analysisJson!);
+    expect(analysis.salary).toMatchObject({ source: 'estimated', minNzd: 115_000, maxNzd: 155_000, position: 'below', weight: 10, band: { id: 'product' } });
+    expect(sent[0].text).toContain('Salary: Not specified — estimated $115k–$155k NZD for similar roles');
+  });
+
+  it('no target in the profile: salary is not scored and the match is the skills match', async () => {
+    const db = await withTarget(null);
+    const { deps } = fakeDeps({ db, generate: scriptedGenerate([VALID_OUTPUT]).generate, fetchPage: fetchFixture });
+    const result = await processListing(deps, { userId: USER, processedEmailId: null, listing: LISTING });
+    const analysis = JSON.parse((await getRun(db, result.runId))!.analysisJson!);
+    expect(analysis.salary).toBeUndefined();
   });
 });

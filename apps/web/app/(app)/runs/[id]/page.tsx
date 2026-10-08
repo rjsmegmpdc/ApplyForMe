@@ -1,3 +1,4 @@
+import { describeSalaryFit, type SalaryAssessment } from '@applyforme/engine';
 import { jobSourceOfUrl, sourceLabel } from '@applyforme/engine';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -42,8 +43,16 @@ export default async function RunDetailPage({ params }: { params: Promise<{ id: 
   const facts: [string, React.ReactNode][] = [
     ['Company', run.company ?? '—'],
     ['Location', run.location ?? '—'],
-    ['Salary', run.salaryText ?? '—'],
-    ['Match', run.matchPercentage != null ? `${run.matchPercentage}%` : '—'],
+    ['Salary', analysis?.salary ? analysis.salary.basis : (run.salaryText ?? '—')],
+    ...(analysis?.salary
+      ? ([['Salary fit', describeSalaryFit(analysis.salary as unknown as SalaryAssessment)]] as [string, React.ReactNode][])
+      : []),
+    [
+      'Match',
+      run.matchPercentage != null
+        ? `${run.matchPercentage}%${analysis?.salary ? ` (skills ${analysis.salary.skillsMatch}% blended with salary fit ${analysis.salary.fit}%)` : ''}`
+        : '—',
+    ],
     ['Created', formatNzFull(run.createdAt)],
     ['Updated', formatNzFull(run.updatedAt)],
     ['Job text', run.jobTextSource === 'full-ad' ? 'full ad' : 'alert snippet'],

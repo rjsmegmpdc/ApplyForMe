@@ -21,6 +21,17 @@ export interface UserProfile {
   career_history: CareerRole[];
   certifications_and_training: CertificationEntry[];
   priority_benefits?: PriorityBenefitItem[];
+  /** Target base salary range used to weight the match score (salary/salary-fit.ts). Absent = salary is not scored. */
+  salary_target?: SalaryTarget;
+}
+
+/** Matt's target base salary, always NZD per year. */
+export interface SalaryTarget {
+  min: number;
+  max: number;
+  currency: 'NZD';
+  /** Share of the match % given to salary fit for an ADVERTISED salary, 0–50 (default 20). Estimated bands count half. */
+  weight?: number;
 }
 
 export interface CareerRole {

@@ -47,6 +47,19 @@ export const analysisViewSchema = z
     missingSkills: strArr.optional(),
     recommendedCertifications: strArr.optional(),
     benefitMatches: z.array(z.object({ keyword: z.string(), found: z.boolean(), context: z.string().optional() }).passthrough()).optional(),
+    salary: z
+      .object({
+        source: z.enum(['advertised', 'estimated']),
+        basis: z.string(),
+        fit: z.number(),
+        weight: z.number(),
+        skillsMatch: z.number(),
+        position: z.string(),
+        gapNzd: z.number(),
+        target: z.object({ min: z.number(), max: z.number() }),
+      })
+      .passthrough()
+      .optional(),
   })
   .passthrough();
 export type AnalysisView = z.infer<typeof analysisViewSchema>;

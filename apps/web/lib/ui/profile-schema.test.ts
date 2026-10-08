@@ -89,3 +89,16 @@ describe('parseProfileJson', () => {
     if (r.ok) expect(r.profile.core_competencies).toEqual(['Technology Roadmaps', 'Zero Trust']);
   });
 });
+
+describe('salary_target', () => {
+  const base = JSON.parse(JSON.stringify(V1_PROFILE));
+  it('accepts a NZD range with an optional weight and defaults the currency', () => {
+    const r = validateProfile({ ...base, salary_target: { min: 180000, max: 250000, weight: 20 } });
+    expect(r.ok && r.profile.salary_target).toEqual({ min: 180000, max: 250000, currency: 'NZD', weight: 20 });
+  });
+  it('rejects max below min, a weight over 50, and a non-NZD currency', () => {
+    expect(validateProfile({ ...base, salary_target: { min: 250000, max: 180000 } }).ok).toBe(false);
+    expect(validateProfile({ ...base, salary_target: { min: 180000, max: 250000, weight: 80 } }).ok).toBe(false);
+    expect(validateProfile({ ...base, salary_target: { min: 180000, max: 250000, currency: 'AUD' } }).ok).toBe(false);
+  });
+});

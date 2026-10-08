@@ -11,7 +11,7 @@
  * both light and dark mail clients. A plain-text twin carries the same
  * content for clients that strip HTML. Pure: builds strings from inputs.
  */
-import { jobSourceOfUrl, sourceLabel } from '@applyforme/engine';
+import { describeSalaryFit, jobSourceOfUrl, sourceLabel } from '@applyforme/engine';
 import type { AnalysisResult, TailoredOutput, TriggerDecision } from '@applyforme/engine';
 import type { Run } from '@/server/db/schema';
 
@@ -107,6 +107,9 @@ export function buildReviewEmail(input: ReviewEmailInput): ReviewEmail {
   const matched = analysis.matches.filter((m) => m.matched).slice(0, MAX_MATCHES);
   const missing = analysis.missingSkills;
   const metaLine = [run.company, run.location, run.salaryText].filter((p): p is string => !!p && p.trim().length > 0);
+  const salary = analysis.salary;
+  const salaryVerdict = salary ? describeSalaryFit(salary) : null;
+  const scoreBreakdown = salary ? `skills ${salary.skillsMatch}% · salary fit ${salary.fit}% (weight ${salary.weight}%)` : null;
 
   const notes = [...(input.notes ?? [])];
   if (!linksSigned) notes.push('Action links are not signed (ACTION_LINK_SECRET is unset) — the buttons open the run page in the app instead.');
@@ -121,8 +124,14 @@ export function buildReviewEmail(input: ReviewEmailInput): ReviewEmail {
   h.push(`<div style="font-size:13px;color:#777777;margin-bottom:8px">ApplyForMe · run #${run.id}</div>`);
   h.push('<div style="border:1px solid #d8dde6;border-radius:10px;padding:18px 20px;background:#f7f9fc;color:#222222">');
   h.push(`<div style="font-size:34px;font-weight:700;color:#1B365D;line-height:1">${escapeHtml(score)}<span style="font-size:14px;font-weight:400;color:#666666;margin-left:8px">match</span></div>`);
+  if (scoreBreakdown) h.push(`<div style="font-size:12px;color:#666666;margin-top:4px">${escapeHtml(scoreBreakdown)}</div>`);
   h.push(`<div style="font-size:20px;font-weight:700;color:#1B365D;margin-top:8px">${escapeHtml(run.jobTitle)}</div>`);
   if (metaLine.length > 0) h.push(`<div style="color:#444444;margin-top:2px">${escapeHtml(metaLine.join(' · '))}</div>`);
+  if (salary && salaryVerdict) {
+    const tone = salary.position === 'below' ? '#8a1f1f' : salary.source === 'estimated' ? '#5a3a00' : '#2e5e2e';
+    h.push(`<div style="margin-top:8px;font-size:14px;color:#333333"><strong>Salary:</strong> ${escapeHtml(salary.basis)}</div>`);
+    h.push(`<div style="font-size:13px;color:${tone}">${escapeHtml(salaryVerdict)}</div>`);
+  }
   const applyLabel = `Apply on ${sourceLabel(jobSourceOfUrl(input.jobUrl))}`;
   h.push(`<div style="margin-top:14px">${btn(input.jobUrl, applyLabel, '#0d3880')}</div>`);
   h.push('</div>');
@@ -181,7 +190,9 @@ export function buildReviewEmail(input: ReviewEmailInput): ReviewEmail {
   t.push(`ApplyForMe · run #${run.id}`);
   t.push('');
   t.push(`${score} match — ${run.jobTitle}`);
+  if (scoreBreakdown) t.push(`(${scoreBreakdown})`);
   if (metaLine.length > 0) t.push(metaLine.join(' · '));
+  if (salary && salaryVerdict) t.push(`Salary: ${salary.basis} — ${salaryVerdict}`);
   t.push('');
   t.push(`Apply on ${sourceLabel(jobSourceOfUrl(input.jobUrl))}: ${input.jobUrl}`);
   t.push('');

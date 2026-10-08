@@ -3,12 +3,15 @@ import { getDb, getEnv, schema } from '@/server/db';
 import { resolveUser } from '@/server/identity';
 import { getOrCreateDefaultProfile } from '@/server/runs';
 import { validateProfile } from '@/lib/ui/profile-schema';
+import { rescoreRunsSalary } from '@/server/pipeline/rescore-salary';
 
 /**
  * GET/PUT /api/profile — the default master profile. PUT takes the
  * `UserProfile` object itself as the body (validated by lib/ui/profile-schema)
  * and upserts: updates the default profile row, or creates one named
- * "Default" when the user has none yet.
+ * "Default" when the user has none yet. When the salary target changed, the
+ * salary part of every stored run's match % is re-scored (no re-tailoring,
+ * no email).
  */
 export const runtime = 'nodejs';
 
@@ -38,7 +41,9 @@ export async function PUT(request: Request): Promise<Response> {
       .set({ profileJson: parsed.profile, updatedAt: new Date() })
       .where(eq(schema.profiles.id, existing.id))
       .returning();
-    return Response.json({ ok: true, id: row.id, created: false });
+    const targetChanged = JSON.stringify(existing.profileJson.salary_target ?? null) !== JSON.stringify(parsed.profile.salary_target ?? null);
+    const rescored = targetChanged ? await rescoreRunsSalary(db, identity.userId, parsed.profile.salary_target) : null;
+    return Response.json({ ok: true, id: row.id, created: false, rescored });
   }
   const [row] = await db
     .insert(schema.profiles)

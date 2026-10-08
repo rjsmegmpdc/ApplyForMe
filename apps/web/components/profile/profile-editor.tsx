@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import type { UserProfile } from '@applyforme/engine';
+import { DEFAULT_SALARY_WEIGHT, type UserProfile } from '@applyforme/engine';
 import { emptyProfile, parseProfileJson, validateProfile } from '@/lib/ui/profile-schema';
 import { parseList } from '@/lib/ui/rules-form';
 import { Note, Section } from '@/components/ui/section';
@@ -28,6 +28,28 @@ export function ProfileEditor({ initialProfile }: { initialProfile: UserProfile 
   function update(patch: Partial<UserProfile>) {
     setDraft((d) => {
       const next = { ...(d ?? emptyProfile()), ...patch };
+      setJsonText(JSON.stringify(next, null, 2));
+      return next;
+    });
+  }
+
+  /** Salary inputs: blank min and max removes the target; weight only applies once a range exists. */
+  function updateSalary(patch: { min?: string; max?: string; weight?: string }) {
+    setDraft((d) => {
+      if (!d) return d;
+      const cur = d.salary_target;
+      const num = (v: string | undefined, fallback: number | undefined) => (v === undefined ? fallback : v.trim() === '' ? undefined : Math.max(0, Math.round(Number(v))));
+      const min = num(patch.min, cur?.min);
+      const max = num(patch.max, cur?.max);
+      const weight = num(patch.weight, cur?.weight);
+      let next: UserProfile;
+      if (min === undefined && max === undefined) {
+        const { salary_target: _drop, ...rest } = d;
+        void _drop;
+        next = rest;
+      } else {
+        next = { ...d, salary_target: { min: min ?? 0, max: max ?? 0, currency: 'NZD', ...(weight !== undefined ? { weight: Math.min(50, weight) } : {}) } };
+      }
       setJsonText(JSON.stringify(next, null, 2));
       return next;
     });
@@ -144,6 +166,26 @@ export function ProfileEditor({ initialProfile }: { initialProfile: UserProfile 
               <label className={form.field}>
                 <span>Years of experience</span>
                 <input className={form.input} type="number" min={0} value={p.years_experience} onChange={(e) => updatePersonal({ years_experience: Number(e.target.value) || 0 })} />
+              </label>
+            </div>
+          </Section>
+
+          <Section
+            label="Target salary (NZD, base per year)"
+            description="Every job gets a salary band in NZD: the advertised one, or an estimated market band for similar roles when the ad gives none. How close that band sits to this range is blended into the match % — at the weight below for an advertised salary, and half that for an estimate. Clear both amounts to stop scoring salary."
+          >
+            <div className={form.grid2}>
+              <label className={form.field}>
+                <span>Minimum</span>
+                <input className={form.input} type="number" min={0} step={5000} inputMode="numeric" value={draft.salary_target?.min ?? ''} placeholder="180000" onChange={(e) => updateSalary({ min: e.target.value })} />
+              </label>
+              <label className={form.field}>
+                <span>Maximum</span>
+                <input className={form.input} type="number" min={0} step={5000} inputMode="numeric" value={draft.salary_target?.max ?? ''} placeholder="250000" onChange={(e) => updateSalary({ max: e.target.value })} />
+              </label>
+              <label className={form.field}>
+                <span>Salary weight in the match % (0–50)</span>
+                <input className={form.input} type="number" min={0} max={50} step={5} inputMode="numeric" value={draft.salary_target?.weight ?? DEFAULT_SALARY_WEIGHT} disabled={!draft.salary_target} onChange={(e) => updateSalary({ weight: e.target.value })} />
               </label>
             </div>
           </Section>
