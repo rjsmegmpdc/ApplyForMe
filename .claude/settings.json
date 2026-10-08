@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(npm run dev *)",
+      "Bash(npm run build *)",
+      "Bash(npx tsc *)",
+      "Bash(npx prisma generate *)",
+      "Bash(npx prisma validate *)",
+      "Bash(npx prisma format *)",
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git show *)",
+      "Bash(git branch *)"
+    ],
+    "ask": [
+      "Bash(npx prisma db push *)",
+      "Bash(npx prisma migrate *)",
+      "Bash(npx tsx prisma/seed.ts *)",
+      "Bash(rm prisma/*)",
+      "Bash(rm -f prisma/*)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.local)",
+      "Bash(npx prisma db push --force-reset *)",
+      "Bash(npx prisma migrate reset *)",
+      "Bash(git push --force *)",
+      "Bash(git push -f *)"
+    ]
+  }
+}
