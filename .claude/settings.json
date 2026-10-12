@@ -29,5 +29,17 @@
       "Bash(git push --force *)",
       "Bash(git push -f *)"
     ]
+  },
+  "extraKnownMarketplaces": {
+    "agents": {
+      "source": {
+        "source": "github",
+        "repo": "rjsmegmpdc/Agents"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "org@agents": true,
+    "delivery@agents": true
   }
 }
