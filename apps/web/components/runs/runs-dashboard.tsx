@@ -45,6 +45,7 @@ const STATS_COLUMNS: { key: StatsSortKey; label: string; title?: string }[] = [
   { key: 'emailed', label: 'Emailed', title: 'Packs emailed (sent, applied, rejected or regenerating)' },
   { key: 'skipped', label: 'Skipped' },
   { key: 'failed', label: 'Failed' },
+  { key: 'held', label: 'Held', title: 'Held while sending was paused' },
   { key: 'submitted', label: 'Submitted' },
   { key: 'avgMatch', label: 'Avg match' },
   { key: 'topMatch', label: 'Top match' },
@@ -160,6 +161,7 @@ export function RunsDashboard({ initialRows }: { initialRows: RunRow[] }) {
                   <td className={styles.num}>{count(s.emailed)}</td>
                   <td className={styles.num}>{count(s.skipped)}</td>
                   <td className={styles.num}>{count(s.failed)}</td>
+                  <td className={styles.num}>{count(s.held)}</td>
                   <td className={styles.num}>{count(s.submitted)}</td>
                   <td className={styles.num}>{pct(s.avgMatch)}</td>
                   <td className={styles.num}>{pct(s.topMatch)}</td>
@@ -176,6 +178,7 @@ export function RunsDashboard({ initialRows }: { initialRows: RunRow[] }) {
                 <td className={styles.num}>{stats.total.emailed}</td>
                 <td className={styles.num}>{stats.total.skipped}</td>
                 <td className={styles.num}>{stats.total.failed}</td>
+                <td className={styles.num}>{stats.total.held}</td>
                 <td className={styles.num}>{stats.total.submitted}</td>
                 <td className={styles.num}>{pct(stats.total.avgMatch)}</td>
                 <td className={styles.num}>{pct(stats.total.topMatch)}</td>

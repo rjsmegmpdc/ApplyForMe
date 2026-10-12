@@ -128,6 +128,8 @@ export interface DayStats {
   skipped: number;
   failed: number;
   pending: number;
+  /** Held while sending was paused. */
+  held: number;
   submitted: number;
   /** Mean match % over runs that have one; null when none do. Rounded. */
   avgMatch: number | null;
@@ -141,7 +143,7 @@ export interface DayStats {
 export type DayStatsKey = Exclude<keyof DayStats, never>;
 
 function emptyStats(day: string): DayStats {
-  return { day, runs: 0, emailed: 0, skipped: 0, failed: 0, pending: 0, submitted: 0, avgMatch: null, topMatch: null, live: 0, repaired: 0, fallback: 0 };
+  return { day, runs: 0, emailed: 0, skipped: 0, failed: 0, pending: 0, held: 0, submitted: 0, avgMatch: null, topMatch: null, live: 0, repaired: 0, fallback: 0 };
 }
 
 function accumulate(rows: readonly RunRow[], day: string): DayStats {
@@ -154,6 +156,7 @@ function accumulate(rows: readonly RunRow[], day: string): DayStats {
     else if (r.status === 'skipped') s.skipped += 1;
     else if (r.status === 'failed') s.failed += 1;
     else if (r.status === 'pending') s.pending += 1;
+    else if (r.status === 'held') s.held += 1;
     if (r.submitted) s.submitted += 1;
     if (r.match != null) {
       matchSum += r.match;

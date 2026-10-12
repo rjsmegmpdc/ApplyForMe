@@ -40,7 +40,7 @@ import {
 import type { Db } from '@/server/db';
 import { schema } from '@/server/db';
 import type { Profile, Run, RunStatus } from '@/server/db/schema';
-import { createRun, findRunBySeekJobId, getOrCreateDefaultProfile, getRun, getTriggerRules, listPreferences, updateRun } from '@/server/runs';
+import { createRun, findRunBySeekJobId, getOrCreateDefaultProfile, getRun, getTriggerRules, isSendingPaused, listPreferences, updateRun } from '@/server/runs';
 import type { SendFn } from '@/server/email/send';
 import { signActionLink, type RunAction } from '@/lib/action-links';
 import type { GenerateFn } from '@/server/ai/anthropic';
@@ -326,6 +326,8 @@ export async function processListing(
   const existing = await findRunBySeekJobId(db, userId, seekJobId);
   if (existing) {
     if (existing.status === 'regenerate') return processRegenerate(deps, existing.id);
+    // A job held while sending was paused, seen again after resuming: send it now.
+    if (existing.status === 'held' && !(await isSendingPaused(db, userId))) return processRegenerate(deps, existing.id);
     return { runId: existing.id, status: 'skipped', reason: 'duplicate' };
   }
 
@@ -389,6 +391,7 @@ export async function processListing(
   const rules = parseTriggerRules(rulesRow?.rulesJson);
   const decision = evaluateTrigger({ title, company, location, salary, text: jobText, matchPercentage: analysis.matchPercentage }, rules);
 
+  const paused = decision.decision === 'process' && (await isSendingPaused(db, userId));
   const run = await createRun(db, {
     userId,
     profileId: profile.id,
@@ -404,11 +407,13 @@ export async function processListing(
     matchPercentage: analysis.matchPercentage,
     analysisJson: JSON.stringify(analysis),
     triggerJson: JSON.stringify(decision),
-    status: decision.decision === 'skip' ? 'skipped' : 'pending',
+    status: decision.decision === 'skip' ? 'skipped' : paused ? 'held' : 'pending',
   });
   if (decision.decision === 'skip') {
     return { runId: run.id, status: 'skipped', reason: decision.reasons.join('; ') };
   }
+  // Sending paused: analysed and recorded, but no model call and no email until released.
+  if (paused) return { runId: run.id, status: 'held', reason: 'sending paused' };
 
   // 6–10.
   try {
@@ -424,6 +429,8 @@ export async function processRegenerate(deps: PipelineDeps, runId: number): Prom
   const { db } = deps;
   const run = await getRun(db, runId);
   if (!run) return { runId, status: 'failed', reason: 'run not found' };
+  // Sending paused: leave the run exactly as it is (a 'regenerate' run is picked up again after resuming).
+  if (await isSendingPaused(db, run.userId)) return { runId, status: run.status, reason: 'sending paused' };
 
   const stored = run.profileId ? await db.query.profiles.findFirst({ where: eq(schema.profiles.id, run.profileId) }) : null;
   const profile = stored ?? (await getOrCreateDefaultProfile(db, run.userId));
@@ -468,6 +475,7 @@ export async function resendRun(deps: PipelineDeps, runId: number, note?: string
   const { db, env } = deps;
   const run = await getRun(db, runId);
   if (!run) return { runId, status: 'failed', reason: 'run not found' };
+  if (await isSendingPaused(db, run.userId)) return { runId, status: 'failed', reason: 'sending is paused — turn sending back on to resend' };
   const output = parseJson<TailoredOutput>(run.tailoredJson);
   const analysis = parseJson<AnalysisResult>(run.analysisJson);
   if (!output || !analysis) return { runId, status: 'failed', reason: 'run has no stored documents to resend (never tailored)' };

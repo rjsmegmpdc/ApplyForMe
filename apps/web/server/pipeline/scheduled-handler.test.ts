@@ -72,7 +72,7 @@ describe('runScheduledSweep', () => {
   it('is a no-op on an empty table', async () => {
     const db = await setupDb();
     const { deps, sent } = fakeDeps({ db });
-    expect(await runScheduledSweep(deps)).toEqual({ regenerated: [], retried: [], abandoned: [] });
+    expect(await runScheduledSweep(deps)).toEqual({ regenerated: [], retried: [], abandoned: [], pausedSkipped: 0 });
     expect(sent).toHaveLength(0);
   });
 });

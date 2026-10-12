@@ -40,8 +40,9 @@ export function createTestDb(): { db: Db; sqlite: InstanceType<typeof Database> 
 /** Seed the default user (id 1, test@example.com) that per-user tables default to. */
 export async function seedUser(db: Db): Promise<void> {
   // Migration 0001 already seeds row 1 with no email; give it the test identity.
+  // Migration 0003 pauses sending for row 1 (the live account); tests start with sending on.
   await db
     .insert(schema.users)
-    .values({ id: schema.DEFAULT_USER_ID, name: 'Test', email: 'test@example.com' })
-    .onConflictDoUpdate({ target: schema.users.id, set: { name: 'Test', email: 'test@example.com' } });
+    .values({ id: schema.DEFAULT_USER_ID, name: 'Test', email: 'test@example.com', sendsPausedAt: null })
+    .onConflictDoUpdate({ target: schema.users.id, set: { name: 'Test', email: 'test@example.com', sendsPausedAt: null } });
 }

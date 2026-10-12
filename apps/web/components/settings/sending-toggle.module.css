@@ -1,0 +1,43 @@
+.box {
+  border: 1px solid var(--line);
+  border-left-width: 4px;
+  border-radius: var(--radius);
+  background: var(--bg-1);
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  display: grid;
+  gap: 10px;
+}
+.on {
+  border-left-color: var(--ok);
+}
+.paused {
+  border-left-color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 8%, var(--bg-1));
+}
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.text {
+  display: grid;
+  gap: 2px;
+  flex: 1 1 240px;
+  min-width: 0;
+}
+.sub {
+  color: var(--muted);
+  font-size: 14px;
+}
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--ok);
+}
+.paused .dot {
+  background: var(--warn);
+}

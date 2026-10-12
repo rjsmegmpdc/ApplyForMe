@@ -33,6 +33,8 @@ export const users = sqliteTable(
     name: text('name').notNull(),
     /** Where the review pack is emailed. Null = use `email`. Kept separate so the user can route packs to a different inbox than their login identity. */
     reviewEmail: text('review_email'),
+    /** Set = sending is paused (since then): jobs are analysed and held, nothing is tailored or emailed. Null = sending on. */
+    sendsPausedAt: integer('sends_paused_at', { mode: 'timestamp' }),
     createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`).notNull(),
   },
   (t) => ({
@@ -190,7 +192,7 @@ export const runs = sqliteTable(
     /** Provenance of `tailored_json`: live LLM, live-but-repaired JSON, deterministic fallback, or none (not tailored). */
     origin: text('origin', { enum: ['live', 'live-repaired', 'fallback', 'none'] }),
     status: text('status', {
-      enum: ['pending', 'skipped', 'sent', 'failed', 'applied', 'rejected', 'regenerate'],
+      enum: ['pending', 'skipped', 'sent', 'failed', 'applied', 'rejected', 'regenerate', 'held'],
     })
       .notNull()
       .default('pending'),

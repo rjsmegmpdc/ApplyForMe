@@ -120,6 +120,48 @@ export async function setRunSubmitted(db: Db, runId: number, submitted: boolean,
 }
 
 /* ------------------------------------------------------------------------ */
+/* Sending pause                                                             */
+/* ------------------------------------------------------------------------ */
+
+/** When sending was paused for this user, or null when sending is on. */
+export async function getSendsPausedAt(db: Db, userId: number): Promise<Date | null> {
+  const user = await db.query.users.findFirst({ where: eq(schema.users.id, userId), columns: { sendsPausedAt: true } });
+  return user?.sendsPausedAt ?? null;
+}
+
+export async function isSendingPaused(db: Db, userId: number): Promise<boolean> {
+  return (await getSendsPausedAt(db, userId)) != null;
+}
+
+/** Pause (keeps the original pause time if already paused) or resume sending. Returns the new pause time. */
+export async function setSendingPaused(db: Db, userId: number, paused: boolean, now: Date = new Date()): Promise<Date | null> {
+  const current = await getSendsPausedAt(db, userId);
+  const next = paused ? (current ?? now) : null;
+  await db.update(schema.users).set({ sendsPausedAt: next }).where(eq(schema.users.id, userId));
+  return next;
+}
+
+/** Runs held while sending was paused. */
+export async function countHeldRuns(db: Db, userId: number): Promise<number> {
+  const rows = await db.select({ id: schema.runs.id }).from(schema.runs).where(and(eq(schema.runs.userId, userId), eq(schema.runs.status, 'held')));
+  return rows.length;
+}
+
+/**
+ * Deal with held runs after resuming: 'release' queues them for the next
+ * scheduled sweep (status 'regenerate' → tailored and emailed within 30 min);
+ * 'discard' marks them skipped. Returns how many changed.
+ */
+export async function settleHeldRuns(db: Db, userId: number, how: 'release' | 'discard'): Promise<number> {
+  const rows = await db
+    .update(schema.runs)
+    .set({ status: how === 'release' ? 'regenerate' : 'skipped', updatedAt: new Date() })
+    .where(and(eq(schema.runs.userId, userId), eq(schema.runs.status, 'held')))
+    .returning({ id: schema.runs.id });
+  return rows.length;
+}
+
+/* ------------------------------------------------------------------------ */
 /* Feedback                                                                  */
 /* ------------------------------------------------------------------------ */
 

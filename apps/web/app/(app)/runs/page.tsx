@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { getDb } from '@/server/db';
-import { listRuns } from '@/server/runs';
+import { countHeldRuns, getSendsPausedAt, listRuns } from '@/server/runs';
+import { SendingToggle } from '@/components/settings/sending-toggle';
 import { pageIdentity } from '@/lib/ui/session';
 import { toRunRow } from '@/lib/ui/runs-table';
 import { RunsDashboard } from '@/components/runs/runs-dashboard';
@@ -15,11 +16,14 @@ export default async function RunsPage() {
   const identity = await pageIdentity();
   if (!identity) return <SessionExpired />;
 
-  const runs = await listRuns(getDb(), identity.userId, { limit: 500 });
+  const db = getDb();
+  const [runs, pausedAt, held] = await Promise.all([listRuns(db, identity.userId, { limit: 500 }), getSendsPausedAt(db, identity.userId), countHeldRuns(db, identity.userId)]);
 
   return (
     <>
       <PageTitle aside={`${runs.length} run${runs.length === 1 ? '' : 's'} · times in Pacific/Auckland`}>Runs</PageTitle>
+
+      <SendingToggle initial={{ paused: pausedAt != null, pausedAt: pausedAt?.toISOString() ?? null, held }} />
 
       <Section label="Analyse a job link">
         <RunUrlForm />

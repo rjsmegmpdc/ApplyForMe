@@ -41,6 +41,7 @@ export const STATUS_TONE: Record<RunStatus, Tone> = {
   applied: 'ok',
   rejected: 'warn',
   regenerate: 'warn',
+  held: 'warn',
 };
 
 export const ORIGIN_TONE: Record<string, Tone> = {

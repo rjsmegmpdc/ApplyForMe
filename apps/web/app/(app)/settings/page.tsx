@@ -8,6 +8,8 @@ import { Note, PageTitle, Section, SessionExpired } from '@/components/ui/sectio
 import { ReviewEmail } from '@/components/settings/review-email';
 import { LlmKey } from '@/components/settings/llm-key';
 import { TestEmail } from '@/components/settings/test-email';
+import { SendingToggle } from '@/components/settings/sending-toggle';
+import { countHeldRuns, getSendsPausedAt } from '@/server/runs';
 import styles from './settings.module.css';
 
 export const runtime = 'nodejs';
@@ -21,6 +23,7 @@ export default async function SettingsPage() {
 
   const db = getDb();
   const env = getEnv();
+  const [pausedAt, held] = await Promise.all([getSendsPausedAt(db, identity.userId), countHeldRuns(db, identity.userId)]);
   const [user, llmSource, forwarding] = await Promise.all([
     db.query.users.findFirst({ where: eq(schema.users.id, identity.userId) }),
     llmCredentialSource(db, env.ANTHROPIC_API_KEY, identity.userId),
@@ -42,6 +45,8 @@ export default async function SettingsPage() {
   return (
     <>
       <PageTitle aside={identity.email ?? 'dev mode · user 1'}>Settings</PageTitle>
+
+      <SendingToggle initial={{ paused: pausedAt != null, pausedAt: pausedAt?.toISOString() ?? null, held }} />
 
       <Section label="Forwarding confirmation" description="Gmail sends a confirmation code when you add the forwarding address (SETUP.md step 7). The Worker recognises that email and the newest code appears here.">
         {code ? (
