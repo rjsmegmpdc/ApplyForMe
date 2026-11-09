@@ -5,3 +5,7 @@ prisma/applyforme.db
 .env
 *.db-journal
 extracted/
+
+# Claude Code — personal settings stay local; .claude/settings.json is shared
+.claude/settings.local.json
+CLAUDE.local.md
