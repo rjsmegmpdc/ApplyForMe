@@ -1,5 +1,5 @@
 import { getDb, getEnv } from '@/server/db';
-import { resolveUser } from '@/server/identity';
+import { identityErrorResponse, resolveUser } from '@/server/identity';
 import { getRun } from '@/server/runs';
 import { buildPipelineDeps } from '@/server/pipeline/inbound-handler';
 import { resendRun } from '@/server/pipeline/run-job';
@@ -18,7 +18,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
   const db = getDb();
   const env = getEnv();
   const identity = await resolveUser(request.headers, db, env);
-  if ('error' in identity) return Response.json({ error: 'unauthorized' }, { status: 401 });
+  if ('error' in identity) return identityErrorResponse(identity);
 
   const run = await getRun(db, runId);
   if (!run || run.userId !== identity.userId) return Response.json({ error: 'not found' }, { status: 404 });

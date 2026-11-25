@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { getDb, getEnv } from '@/server/db';
-import { resolveUser } from '@/server/identity';
+import { identityErrorResponse, resolveUser } from '@/server/identity';
 import { clearLlmCredentials, llmCredentialSource, saveLlmCredentials } from '@/server/adapters/llm-credentials';
 
 /**
@@ -21,7 +21,7 @@ export async function GET(request: Request): Promise<Response> {
   const env = getEnv();
   const db = getDb();
   const identity = await resolveUser(request.headers, db, env);
-  if ('error' in identity) return Response.json({ error: 'unauthorized' }, { status: 401 });
+  if ('error' in identity) return identityErrorResponse(identity);
 
   const source = await llmCredentialSource(db, env.ANTHROPIC_API_KEY, identity.userId);
   return Response.json({ source, hasPersonalKey: source === 'personal', canStore: Boolean(env.TOKENS_ENC_KEY) });
@@ -34,7 +34,7 @@ export async function PUT(request: Request): Promise<Response> {
   const env = getEnv();
   const db = getDb();
   const identity = await resolveUser(request.headers, db, env);
-  if ('error' in identity) return Response.json({ error: 'unauthorized' }, { status: 401 });
+  if ('error' in identity) return identityErrorResponse(identity);
 
   if (!env.TOKENS_ENC_KEY) return Response.json({ error: 'encryption not configured (TOKENS_ENC_KEY)' }, { status: 400 });
   await saveLlmCredentials(db, env.TOKENS_ENC_KEY, identity.userId, 'anthropic', parsed.data.apiKey);
@@ -45,7 +45,7 @@ export async function DELETE(request: Request): Promise<Response> {
   const env = getEnv();
   const db = getDb();
   const identity = await resolveUser(request.headers, db, env);
-  if ('error' in identity) return Response.json({ error: 'unauthorized' }, { status: 401 });
+  if ('error' in identity) return identityErrorResponse(identity);
 
   await clearLlmCredentials(db, identity.userId);
   const source = await llmCredentialSource(db, env.ANTHROPIC_API_KEY, identity.userId);

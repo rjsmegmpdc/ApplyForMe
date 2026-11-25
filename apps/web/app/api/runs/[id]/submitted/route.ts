@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { getDb, getEnv } from '@/server/db';
-import { resolveUser } from '@/server/identity';
+import { identityErrorResponse, resolveUser } from '@/server/identity';
 import { getRun, setRunSubmitted } from '@/server/runs';
 
 /**
@@ -21,7 +21,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
 
   const db = getDb();
   const identity = await resolveUser(request.headers, db, getEnv());
-  if ('error' in identity) return Response.json({ error: 'unauthorized' }, { status: 401 });
+  if ('error' in identity) return identityErrorResponse(identity);
 
   const run = await getRun(db, runId);
   if (!run || run.userId !== identity.userId) return Response.json({ error: 'not found' }, { status: 404 });

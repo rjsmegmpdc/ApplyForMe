@@ -35,6 +35,12 @@ export const users = sqliteTable(
     reviewEmail: text('review_email'),
     /** Set = sending is paused (since then): jobs are analysed and held, nothing is tailored or emailed. Null = sending on. */
     sendsPausedAt: integer('sends_paused_at', { mode: 'timestamp' }),
+    /** Privacy statement version this user accepted (server/privacy.ts PRIVACY_VERSION). Null = never accepted; any other value than the current version = must accept again before anything loads. */
+    privacyVersion: text('privacy_version'),
+    /** When that acceptance was recorded. */
+    privacyAcceptedAt: integer('privacy_accepted_at', { mode: 'timestamp' }),
+    /** How it was given: 'first-use' (the first acceptance) or 're-accept' (after a version bump). */
+    privacyHow: text('privacy_how'),
     createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`).notNull(),
   },
   (t) => ({

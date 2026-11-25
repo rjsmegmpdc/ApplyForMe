@@ -1,5 +1,5 @@
 import { getDb, getEnv } from '@/server/db';
-import { resolveUser } from '@/server/identity';
+import { identityErrorResponse, resolveUser } from '@/server/identity';
 import { getRun } from '@/server/runs';
 
 /** GET /api/runs/[id] — one run, only if it belongs to the caller (a foreign id reads as 404, never 403). */
@@ -12,7 +12,7 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
 
   const db = getDb();
   const identity = await resolveUser(request.headers, db, getEnv());
-  if ('error' in identity) return Response.json({ error: 'unauthorized' }, { status: 401 });
+  if ('error' in identity) return identityErrorResponse(identity);
 
   const run = await getRun(db, runId);
   if (!run || run.userId !== identity.userId) return Response.json({ error: 'not found' }, { status: 404 });

@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { getDb, getEnv, schema } from '@/server/db';
-import { resolveUser } from '@/server/identity';
+import { identityErrorResponse, resolveUser } from '@/server/identity';
 import { getOrCreateDefaultProfile } from '@/server/runs';
 import { validateProfile } from '@/lib/ui/profile-schema';
 import { rescoreRunsSalary } from '@/server/pipeline/rescore-salary';
@@ -18,7 +18,7 @@ export const runtime = 'nodejs';
 export async function GET(request: Request): Promise<Response> {
   const db = getDb();
   const identity = await resolveUser(request.headers, db, getEnv());
-  if ('error' in identity) return Response.json({ error: 'unauthorized' }, { status: 401 });
+  if ('error' in identity) return identityErrorResponse(identity);
 
   const row = await getOrCreateDefaultProfile(db, identity.userId);
   if (!row) return Response.json({ profile: null });
@@ -32,7 +32,7 @@ export async function PUT(request: Request): Promise<Response> {
 
   const db = getDb();
   const identity = await resolveUser(request.headers, db, getEnv());
-  if ('error' in identity) return Response.json({ error: 'unauthorized' }, { status: 401 });
+  if ('error' in identity) return identityErrorResponse(identity);
 
   const existing = await getOrCreateDefaultProfile(db, identity.userId);
   if (existing) {

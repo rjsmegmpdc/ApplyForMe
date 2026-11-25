@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { getDb, getEnv, schema } from '@/server/db';
-import { resolveUser } from '@/server/identity';
+import { identityErrorResponse, resolveUser } from '@/server/identity';
 import { resolveSendFn } from '@/server/email/send';
 import { Document, Packer, Paragraph, TextRun } from 'docx';
 import { DOCX_CONTENT_TYPE } from '@/server/docs/docx';
@@ -19,7 +19,7 @@ export async function POST(request: Request): Promise<Response> {
   const env = getEnv();
   const db = getDb();
   const identity = await resolveUser(request.headers, db, env);
-  if ('error' in identity) return Response.json({ error: 'unauthorized' }, { status: 401 });
+  if ('error' in identity) return identityErrorResponse(identity);
 
   const user = await db.query.users.findFirst({ where: eq(schema.users.id, identity.userId) });
   const to = user?.reviewEmail ?? user?.email ?? null;

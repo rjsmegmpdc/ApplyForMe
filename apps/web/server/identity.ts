@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm';
 import type { Db } from '@/server/db';
 import { schema } from '@/server/db';
 import { DEFAULT_USER_ID } from '@/server/db/schema';
+import { privacyStatus } from '@/server/privacy';
 
 /**
  * Identity resolution — maps the caller's Cloudflare Access identity to a
@@ -30,7 +31,30 @@ export interface ResolvedIdentity {
   email: string | null;
 }
 
-export type ResolveUserResult = ResolvedIdentity | { error: 'unauthorized' };
+/**
+ * `privacy`: the caller passed Access but their user has not accepted the CURRENT privacy statement
+ * (server/privacy.ts). Callers treat it exactly like `unauthorized` (nothing user-scoped is served);
+ * identityErrorResponse / identityErrorPath turn it into 403 {privacy: true} or a redirect to /privacy/accept.
+ */
+export type IdentityError = { error: 'unauthorized' } | { error: 'privacy' };
+
+export type ResolveUserResult = ResolvedIdentity | IdentityError;
+
+export interface ResolveUserOptions {
+  /**
+   * Only the privacy accept page and its API pass this: they must know who is asking BEFORE the
+   * acknowledgement exists. Everything else is gated.
+   */
+  allowPendingPrivacy?: boolean;
+}
+
+/** The API answer for a failed identity: 403 {privacy: true} until the statement is accepted, else 401. */
+export function identityErrorResponse(identity: IdentityError): Response {
+  if (identity.error === 'privacy') {
+    return Response.json({ error: 'Please read and accept the privacy statement first.', privacy: true, accept: '/privacy/accept' }, { status: 403 });
+  }
+  return Response.json({ error: 'unauthorized' }, { status: 401 });
+}
 
 interface AccessJwk {
   kid: string;
@@ -145,7 +169,7 @@ async function findOrCreateUserByEmail(db: Db, email: string): Promise<number> {
 }
 
 /**
- * Resolve the calling user from the request's Access identity.
+ * Resolve the calling user from the request's Access identity, then apply the privacy gate.
  *
  * - Dev mode (no ACCESS_TEAM_DOMAIN/ACCESS_APP_AUD secret configured): user 1, no email.
  * - No JWT header, or verification fails for any reason: `{error: 'unauthorized'}`.
@@ -153,12 +177,39 @@ async function findOrCreateUserByEmail(db: Db, email: string): Promise<number> {
  *   `common_name`, not `email`): user 1, no email — ops/build-proxy context.
  * - Verified JWT with an `email` claim: find-or-create the user by that
  *   email (lowercased — Access emails are case-insensitive identities).
+ * - Privacy gate (Matt, 2026-11-25): any of the above whose user has not accepted the current privacy
+ *   statement gets `{error: 'privacy'}`, unless `opts.allowPendingPrivacy`. A first visit after Access is in
+ *   effect sign-up, so the acknowledgement is the first thing a new user does. The gate applies to the local
+ *   dev fallback and to service tokens too (both act as user 1): there is no identity that skips it.
+ *
+ * NOT gated, by design (they never call this function and serve nothing to a browser session):
+ * - `/api/runs/[id]/action` — the one-click links in the review email. The HMAC-signed, expiring query string
+ *   is the credential (lib/action-links.ts); it can only flip one run's status, and the review email only goes
+ *   to someone who already accepted (the pipeline runs for the owner account).
+ * - `/api/admin/*` — operator routes behind the ADMIN_TOKEN bearer secret (server/admin-auth.ts), inert unless set.
+ * - worker.ts `email` (inbound Seek/LinkedIn alerts) and `scheduled` (cron sweep) — no request identity at all.
+ * server/privacy-gate.test.ts audits every route and page so nothing else slips through.
  */
 export async function resolveUser(
   headers: Pick<Headers, 'get'>,
   db: Db,
-  env: Pick<CloudflareEnv, 'ACCESS_TEAM_DOMAIN' | 'ACCESS_APP_AUD'>
+  env: Pick<CloudflareEnv, 'ACCESS_TEAM_DOMAIN' | 'ACCESS_APP_AUD'>,
+  opts: ResolveUserOptions = {}
 ): Promise<ResolveUserResult> {
+  const identity = await resolveAccessIdentity(headers, db, env);
+  if ('error' in identity) return identity;
+  if (opts.allowPendingPrivacy) return identity;
+  const status = await privacyStatus(db, identity.userId);
+  if (!status.ok) return { error: 'privacy' };
+  return identity;
+}
+
+/** The Access half of resolveUser, before the privacy gate. Exported for tests only. */
+export async function resolveAccessIdentity(
+  headers: Pick<Headers, 'get'>,
+  db: Db,
+  env: Pick<CloudflareEnv, 'ACCESS_TEAM_DOMAIN' | 'ACCESS_APP_AUD'>
+): Promise<ResolvedIdentity | { error: 'unauthorized' }> {
   if (!env.ACCESS_TEAM_DOMAIN || !env.ACCESS_APP_AUD) {
     return { userId: DEFAULT_USER_ID, email: null };
   }

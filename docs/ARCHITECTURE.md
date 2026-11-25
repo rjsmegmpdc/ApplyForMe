@@ -110,6 +110,27 @@ Every review email carries signed one-click links. *Applied* records the outcome
 a note* stores the note and re-runs tailoring. Preferences (tone, avoid, emphasise,
 notes) are injected into the tailoring prompt, so the packs improve with use.
 
+## Privacy (NZ Privacy Act 2020) — 2026-11-25
+
+Same setup as CAIO Academy and AICoach v0.18.
+
+- **Statement:** `/privacy` (`apps/web/app/privacy/page.tsx`): IPP3 what/why/who/where/rights, IPP3A
+  (alert emails, job ads that may name hiring managers), overseas processing (Cloudflare, Anthropic,
+  Apify), email, retention, access/correction/deletion, Privacy Commissioner, breaches. It resolves no
+  identity and shows nothing personal. Contact: `PRIVACY_CONTACT` var, else the owner default.
+- **Acknowledgement:** `users.privacy_version / privacy_accepted_at / privacy_how` (migration 0004).
+  `server/identity.ts` `resolveUser` returns `{error: 'privacy'}` for any identity (dev fallback and
+  service tokens included) without the current `PRIVACY_VERSION` (`server/privacy.ts`): pages redirect
+  to `/privacy/accept`, APIs answer 403 `{privacy: true}`, and the root-layout fetch wrapper
+  (`components/layout/privacy-redirect.tsx`) sends open tabs to the accept page. Bump the version to
+  re-ask everyone. Not gated by design: the signed review-email action links, the `ADMIN_TOKEN`
+  operator routes, and the `email`/`scheduled` handlers. `server/privacy-gate.test.ts` audits every
+  route and page.
+- **Settings › Privacy:** *See and correct my data* (`/api/account/data`, `server/account-data.ts`)
+  lists every item with why, with Change/Remove in place where possible; *Delete my account*
+  (`/api/account/delete`, `server/account-delete.ts`) removes every row in every per-user table and
+  the user's R2 documents after a typed DELETE. The owner account (user 1, the pipeline's) is refused.
+
 ## Repo layout
 
 ```

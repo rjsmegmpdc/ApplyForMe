@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { getDb, getEnv } from '@/server/db';
-import { resolveUser } from '@/server/identity';
+import { identityErrorResponse, resolveUser } from '@/server/identity';
 import { countHeldRuns, getSendsPausedAt, setSendingPaused, settleHeldRuns } from '@/server/runs';
 
 /**
@@ -21,7 +21,7 @@ async function state(db: ReturnType<typeof getDb>, userId: number) {
 export async function GET(request: Request): Promise<Response> {
   const db = getDb();
   const identity = await resolveUser(request.headers, db, getEnv());
-  if ('error' in identity) return Response.json({ error: 'unauthorized' }, { status: 401 });
+  if ('error' in identity) return identityErrorResponse(identity);
   return Response.json(await state(db, identity.userId));
 }
 
@@ -30,7 +30,7 @@ export async function POST(request: Request): Promise<Response> {
   if (!parsed.success) return Response.json({ error: "expected {paused: boolean} or {held: 'release' | 'discard'}" }, { status: 400 });
   const db = getDb();
   const identity = await resolveUser(request.headers, db, getEnv());
-  if ('error' in identity) return Response.json({ error: 'unauthorized' }, { status: 401 });
+  if ('error' in identity) return identityErrorResponse(identity);
 
   let settled: number | undefined;
   if ('paused' in parsed.data) {

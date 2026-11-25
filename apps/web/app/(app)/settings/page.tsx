@@ -9,6 +9,9 @@ import { ReviewEmail } from '@/components/settings/review-email';
 import { LlmKey } from '@/components/settings/llm-key';
 import { TestEmail } from '@/components/settings/test-email';
 import { SendingToggle } from '@/components/settings/sending-toggle';
+import { PrivacyPanel } from '@/components/settings/privacy-panel';
+import { PRIVACY_VERSION_LABEL } from '@/server/privacy';
+import { blockerText, deletionBlockers } from '@/server/account-delete';
 import { countHeldRuns, getSendsPausedAt } from '@/server/runs';
 import styles from './settings.module.css';
 
@@ -38,6 +41,7 @@ export default async function SettingsPage() {
     }),
   ]);
 
+  const blockers = deletionBlockers(identity.userId, identity.email);
   const code = forwarding ? forwarding.text.slice(FORWARDING_PREFIX.length).trim() : null;
   const emailFrom = env.EMAIL_FROM ?? '';
   const senderConfigured = Boolean(env.EMAIL) && !!emailFrom && !/placeholder|<[^>]+>/i.test(emailFrom);
@@ -69,6 +73,14 @@ export default async function SettingsPage() {
 
       <Section label="Test email" description="Sends a short message to the review address through the same transport the pipeline uses.">
         <TestEmail transport={senderConfigured ? 'cloudflare' : 'log'} />
+      </Section>
+
+      <Section label="Privacy" description="See everything ApplyForMe holds about you and why, correct it, or delete your account.">
+        <PrivacyPanel
+          acceptedLabel={user?.privacyAcceptedAt ? `you accepted version ${PRIVACY_VERSION_LABEL} on ${formatNzFull(user.privacyAcceptedAt)}` : `version ${PRIVACY_VERSION_LABEL}`}
+          canDelete={blockers.length === 0}
+          blockers={blockers.map(blockerText)}
+        />
       </Section>
 
       <Section label="Deployment">

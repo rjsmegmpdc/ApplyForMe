@@ -4,7 +4,7 @@ import type { Db } from '@/server/db';
 import { schema } from '@/server/db';
 import { DEFAULT_USER_ID } from '@/server/db/schema';
 import { createTestDb } from '@/server/test/db';
-import { resolveUser } from './identity';
+import { resolveAccessIdentity } from './identity';
 
 /**
  * Identity resolution. No real Cloudflare Access is reachable from tests —
@@ -100,55 +100,55 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('resolveUser — dev-mode escape hatch', () => {
+describe('resolveAccessIdentity — dev-mode escape hatch', () => {
   it('falls back to user 1 with no email when Access secrets are absent (local next dev)', async () => {
     const { db } = createTestDb();
-    const result = await resolveUser(headersWith(null), db, DEV_ENV);
+    const result = await resolveAccessIdentity(headersWith(null), db, DEV_ENV);
     expect(result).toEqual({ userId: DEFAULT_USER_ID, email: null });
   });
 });
 
-describe('resolveUser — fail-closed JWT verification', () => {
+describe('resolveAccessIdentity — fail-closed JWT verification', () => {
   let db: Db;
   beforeEach(() => {
     db = createTestDb().db;
   });
 
   it('rejects a missing JWT header', async () => {
-    expect(await resolveUser(headersWith(null), db, ENV)).toEqual({ error: 'unauthorized' });
+    expect(await resolveAccessIdentity(headersWith(null), db, ENV)).toEqual({ error: 'unauthorized' });
   });
 
   it('rejects a bad signature (signed by a different key than the published JWKS)', async () => {
     const jwt = await signJwt(otherKeyPair.privateKey, KID, validPayload());
-    expect(await resolveUser(headersWith(jwt), db, ENV)).toEqual({ error: 'unauthorized' });
+    expect(await resolveAccessIdentity(headersWith(jwt), db, ENV)).toEqual({ error: 'unauthorized' });
   });
 
   it('rejects an unknown kid', async () => {
     const jwt = await signJwt(keyPair.privateKey, 'not-the-published-kid', validPayload());
-    expect(await resolveUser(headersWith(jwt), db, ENV)).toEqual({ error: 'unauthorized' });
+    expect(await resolveAccessIdentity(headersWith(jwt), db, ENV)).toEqual({ error: 'unauthorized' });
   });
 
   it('rejects the wrong audience', async () => {
     const jwt = await signJwt(keyPair.privateKey, KID, validPayload({ aud: 'some-other-app' }));
-    expect(await resolveUser(headersWith(jwt), db, ENV)).toEqual({ error: 'unauthorized' });
+    expect(await resolveAccessIdentity(headersWith(jwt), db, ENV)).toEqual({ error: 'unauthorized' });
   });
 
   it('rejects the wrong issuer', async () => {
     const jwt = await signJwt(keyPair.privateKey, KID, validPayload({ iss: 'https://not-the-team.cloudflareaccess.com' }));
-    expect(await resolveUser(headersWith(jwt), db, ENV)).toEqual({ error: 'unauthorized' });
+    expect(await resolveAccessIdentity(headersWith(jwt), db, ENV)).toEqual({ error: 'unauthorized' });
   });
 
   it('rejects an expired token', async () => {
     const jwt = await signJwt(keyPair.privateKey, KID, validPayload({ exp: Math.floor(Date.now() / 1000) - 60 }));
-    expect(await resolveUser(headersWith(jwt), db, ENV)).toEqual({ error: 'unauthorized' });
+    expect(await resolveAccessIdentity(headersWith(jwt), db, ENV)).toEqual({ error: 'unauthorized' });
   });
 
   it('rejects a malformed token', async () => {
-    expect(await resolveUser(headersWith('not.a.jwt.at.all'), db, ENV)).toEqual({ error: 'unauthorized' });
+    expect(await resolveAccessIdentity(headersWith('not.a.jwt.at.all'), db, ENV)).toEqual({ error: 'unauthorized' });
   });
 });
 
-describe('resolveUser — service tokens (non_identity)', () => {
+describe('resolveAccessIdentity — service tokens (non_identity)', () => {
   it('maps a verified JWT with no email claim to user 1', async () => {
     const { db } = createTestDb();
     const jwt = await signJwt(keyPair.privateKey, KID, {
@@ -158,16 +158,16 @@ describe('resolveUser — service tokens (non_identity)', () => {
       common_name: 'ops-service-token',
       // deliberately no `email`
     });
-    expect(await resolveUser(headersWith(jwt), db, ENV)).toEqual({ userId: DEFAULT_USER_ID, email: null });
+    expect(await resolveAccessIdentity(headersWith(jwt), db, ENV)).toEqual({ userId: DEFAULT_USER_ID, email: null });
   });
 });
 
-describe('resolveUser — create-on-first-visit (empty user)', () => {
+describe('resolveAccessIdentity — create-on-first-visit (empty user)', () => {
   it('creates a new, otherwise-empty user row on first visit', async () => {
     const { db } = createTestDb();
     const jwt = await signJwt(keyPair.privateKey, KID, validPayload({ email: 'new.person@example.com' }));
 
-    const result = await resolveUser(headersWith(jwt), db, ENV);
+    const result = await resolveAccessIdentity(headersWith(jwt), db, ENV);
     expect('error' in result).toBe(false);
     if ('error' in result) return;
     expect(result.email).toBe('new.person@example.com');
@@ -186,7 +186,7 @@ describe('resolveUser — create-on-first-visit (empty user)', () => {
     const { db } = createTestDb();
     const jwt = await signJwt(keyPair.privateKey, KID, validPayload({ email: 'Mixed.Case@Example.com' }));
 
-    const result = await resolveUser(headersWith(jwt), db, ENV);
+    const result = await resolveAccessIdentity(headersWith(jwt), db, ENV);
     if ('error' in result) throw new Error('expected success');
     expect(result.email).toBe('mixed.case@example.com');
 
@@ -198,8 +198,8 @@ describe('resolveUser — create-on-first-visit (empty user)', () => {
     const { db } = createTestDb();
     const jwt = await signJwt(keyPair.privateKey, KID, validPayload({ email: 'repeat@example.com' }));
 
-    const first = await resolveUser(headersWith(jwt), db, ENV);
-    const second = await resolveUser(headersWith(jwt), db, ENV);
+    const first = await resolveAccessIdentity(headersWith(jwt), db, ENV);
+    const second = await resolveAccessIdentity(headersWith(jwt), db, ENV);
     if ('error' in first || 'error' in second) throw new Error('expected success');
     expect(second.userId).toBe(first.userId);
 
@@ -211,7 +211,7 @@ describe('resolveUser — create-on-first-visit (empty user)', () => {
     const { db } = createTestDb();
     const jwt = await signJwt(keyPair.privateKey, KID, validPayload({ email: 'concurrent@example.com' }));
 
-    const [a, b] = await Promise.all([resolveUser(headersWith(jwt), db, ENV), resolveUser(headersWith(jwt), db, ENV)]);
+    const [a, b] = await Promise.all([resolveAccessIdentity(headersWith(jwt), db, ENV), resolveAccessIdentity(headersWith(jwt), db, ENV)]);
     if ('error' in a || 'error' in b) throw new Error('expected success');
     expect(a.userId).toBe(b.userId);
 
@@ -224,7 +224,7 @@ describe('first Access login claims the seeded default user row', () => {
   it('maps the first verified email onto DEFAULT_USER_ID instead of creating a second user', async () => {
     const { db } = createTestDb(); // migration 0001 seeds user 1 with no email
     const jwt = await signJwt(keyPair.privateKey, KID, validPayload({ email: 'Matt@Example.com' }));
-    const result = await resolveUser(headersWith(jwt), db, ENV);
+    const result = await resolveAccessIdentity(headersWith(jwt), db, ENV);
     expect(result).toEqual({ userId: DEFAULT_USER_ID, email: 'matt@example.com' });
     const rows = await db.query.users.findMany();
     expect(rows).toHaveLength(1);
@@ -232,7 +232,7 @@ describe('first Access login claims the seeded default user row', () => {
 
     // A second, different identity gets its own row.
     const jwt2 = await signJwt(keyPair.privateKey, KID, validPayload({ email: 'friend@example.com' }));
-    const second = await resolveUser(headersWith(jwt2), db, ENV);
+    const second = await resolveAccessIdentity(headersWith(jwt2), db, ENV);
     expect('userId' in second && second.userId).not.toBe(DEFAULT_USER_ID);
     expect(await db.query.users.findMany()).toHaveLength(2);
   });

@@ -29,6 +29,13 @@
       "when": 1791776989296,
       "tag": "0003_sending_pause",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1795641039381,
+      "tag": "0004_privacy_ack",
+      "breakpoints": true
     }
   ]
 }

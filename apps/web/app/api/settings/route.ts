@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { eq } from 'drizzle-orm';
 import { getDb, getEnv, schema } from '@/server/db';
-import { resolveUser } from '@/server/identity';
+import { identityErrorResponse, resolveUser } from '@/server/identity';
 
 /**
  * GET/PATCH /api/settings — the review-pack recipient. `reviewEmail` null
@@ -17,7 +17,7 @@ const patchSchema = z.object({
 export async function GET(request: Request): Promise<Response> {
   const db = getDb();
   const identity = await resolveUser(request.headers, db, getEnv());
-  if ('error' in identity) return Response.json({ error: 'unauthorized' }, { status: 401 });
+  if ('error' in identity) return identityErrorResponse(identity);
 
   const user = await db.query.users.findFirst({ where: eq(schema.users.id, identity.userId) });
   const reviewEmail = user?.reviewEmail ?? null;
@@ -34,7 +34,7 @@ export async function PATCH(request: Request): Promise<Response> {
 
   const db = getDb();
   const identity = await resolveUser(request.headers, db, getEnv());
-  if ('error' in identity) return Response.json({ error: 'unauthorized' }, { status: 401 });
+  if ('error' in identity) return identityErrorResponse(identity);
 
   const reviewEmail = parsed.data.reviewEmail ? parsed.data.reviewEmail.toLowerCase() : null;
   await db.update(schema.users).set({ reviewEmail }).where(eq(schema.users.id, identity.userId));

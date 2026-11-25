@@ -1,5 +1,5 @@
 import { getDb, getEnv } from '@/server/db';
-import { resolveUser } from '@/server/identity';
+import { identityErrorResponse, resolveUser } from '@/server/identity';
 import { getTriggerRules, saveTriggerRules } from '@/server/runs';
 import { rulesFromJson, triggerRulesSchema } from '@/lib/ui/rules-form';
 
@@ -9,7 +9,7 @@ export const runtime = 'nodejs';
 export async function GET(request: Request): Promise<Response> {
   const db = getDb();
   const identity = await resolveUser(request.headers, db, getEnv());
-  if ('error' in identity) return Response.json({ error: 'unauthorized' }, { status: 401 });
+  if ('error' in identity) return identityErrorResponse(identity);
 
   const row = await getTriggerRules(db, identity.userId);
   return Response.json({ rules: rulesFromJson(row?.rulesJson), saved: row != null, updatedAt: row?.updatedAt.toISOString() ?? null });
@@ -21,7 +21,7 @@ export async function PUT(request: Request): Promise<Response> {
 
   const db = getDb();
   const identity = await resolveUser(request.headers, db, getEnv());
-  if ('error' in identity) return Response.json({ error: 'unauthorized' }, { status: 401 });
+  if ('error' in identity) return identityErrorResponse(identity);
 
   const row = await saveTriggerRules(db, identity.userId, JSON.stringify(parsed.data));
   return Response.json({ ok: true, rules: parsed.data, updatedAt: row.updatedAt.toISOString() });

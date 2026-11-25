@@ -46,6 +46,8 @@ interface CloudflareEnv {
   APP_BASE_URL: string;
   EMAIL_FROM: string;
   EMAIL_FROM_NAME?: string;
+  /** Privacy officer's address shown on /privacy and in the data dialog (server/privacy.ts); unset = the owner's default. */
+  PRIVACY_CONTACT?: string;
 
   // secrets (wrangler secret put)
   ANTHROPIC_API_KEY?: string;

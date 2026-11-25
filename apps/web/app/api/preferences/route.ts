@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { and, eq } from 'drizzle-orm';
 import { getDb, getEnv, schema } from '@/server/db';
-import { resolveUser } from '@/server/identity';
+import { identityErrorResponse, resolveUser } from '@/server/identity';
 import { listPreferences } from '@/server/runs';
 
 /**
@@ -21,7 +21,7 @@ const deleteSchema = z.object({ id: z.number().int().positive() });
 export async function GET(request: Request): Promise<Response> {
   const db = getDb();
   const identity = await resolveUser(request.headers, db, getEnv());
-  if ('error' in identity) return Response.json({ error: 'unauthorized' }, { status: 401 });
+  if ('error' in identity) return identityErrorResponse(identity);
 
   const preferences = await listPreferences(db, identity.userId);
   return Response.json({ preferences });
@@ -33,7 +33,7 @@ export async function POST(request: Request): Promise<Response> {
 
   const db = getDb();
   const identity = await resolveUser(request.headers, db, getEnv());
-  if ('error' in identity) return Response.json({ error: 'unauthorized' }, { status: 401 });
+  if ('error' in identity) return identityErrorResponse(identity);
 
   const [row] = await db
     .insert(schema.preferences)
@@ -48,7 +48,7 @@ export async function DELETE(request: Request): Promise<Response> {
 
   const db = getDb();
   const identity = await resolveUser(request.headers, db, getEnv());
-  if ('error' in identity) return Response.json({ error: 'unauthorized' }, { status: 401 });
+  if ('error' in identity) return identityErrorResponse(identity);
 
   const deleted = await db
     .delete(schema.preferences)

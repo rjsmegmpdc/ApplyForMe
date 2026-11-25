@@ -9,3 +9,7 @@ ACCESS_APP_AUD=
 
 # Optional: Apify token for the job-page fallback (Seek 403s and LinkedIn 429s direct Worker reads)
 APIFY_TOKEN=
+
+# Optional: privacy officer address shown on /privacy and in "See and correct my data" (server/privacy.ts).
+# Unset = the owner's default address.
+PRIVACY_CONTACT=
